@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "Real-time device monitoring platform monorepo",
+  "license": "MIT",
   "workspaces": [
     "apps/backend",
     "apps/web"
