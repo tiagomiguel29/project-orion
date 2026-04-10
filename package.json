@@ -1,0 +1,33 @@
+{
+  "name": "project-orion",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Real-time device monitoring platform monorepo",
+  "workspaces": [
+    "apps/backend",
+    "apps/web"
+  ],
+  "packageManager": "npm@11.5.2",
+  "engines": {
+    "node": ">=22 <25",
+    "npm": ">=10"
+  },
+  "scripts": {
+    "install:js": "npm install",
+    "build:web": "npm run build --workspace @project-orion/web",
+    "build:backend": "npm run build --workspace @project-orion/backend",
+    "build": "npm run build:web && npm run build:backend",
+    "lint:web": "npm run lint --workspace @project-orion/web",
+    "lint:backend": "npm run lint --workspace @project-orion/backend",
+    "lint": "npm run lint:web && npm run lint:backend",
+    "typecheck:web": "npm run typecheck --workspace @project-orion/web",
+    "typecheck:backend": "npm run typecheck --workspace @project-orion/backend",
+    "typecheck": "npm run typecheck:web && npm run typecheck:backend",
+    "test": "npm run test --workspace @project-orion/backend",
+    "dev:web": "npm run dev --workspace @project-orion/web",
+    "dev:backend": "npm run dev --workspace @project-orion/backend",
+    "backend:docker": "docker compose -f apps/backend/docker-compose.yml up --build",
+    "agent:run": "cd apps/agent && go run ./cmd/agent",
+    "agent:docker": "cd apps/agent && docker compose up --build"
+  }
+}

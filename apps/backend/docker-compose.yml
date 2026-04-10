@@ -1,0 +1,62 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-orion}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:-orion}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-orion}"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  backend:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-4000}:${HTTP_PORT:-4000}"
+      - "${GRPC_PORT:-50052}:${GRPC_PORT:-50052}"
+    environment:
+      # ── Server ──────────────────────────────────────
+      HTTP_PORT: ${HTTP_PORT:-4000}
+      GRPC_PORT: ${GRPC_PORT:-50052}
+
+      # ── Database (required) ─────────────────────────
+      DATABASE_URL: postgresql://${POSTGRES_USER:-orion}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-orion}
+
+      # ── Redis (required for multi-instance WS) ──────
+      REDIS_URL: redis://redis:6379
+
+      # ── Auth secrets (required) ─────────────────────
+      # IMPORTANT: change these in production
+      AGENT_JWT_SECRET: ${AGENT_JWT_SECRET:-change-me-agent-secret}
+      USER_JWT_SECRET: ${USER_JWT_SECRET:-change-me-user-secret}
+
+      # ── Optional ────────────────────────────────────
+      CORS_ORIGIN: ${CORS_ORIGIN:-*}
+      OFFLINE_AFTER_SEC: ${OFFLINE_AFTER_SEC:-20}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  pgdata:

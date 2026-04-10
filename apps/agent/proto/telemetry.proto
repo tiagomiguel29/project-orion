@@ -1,0 +1,52 @@
+syntax = "proto3";
+
+package telemetry.v1;
+
+option go_package = "github.com/tiagomiguel29/project-orion-agent/telemetry/gen;telemetry";
+
+service TelemetryIngestService {
+  // v1: simplest to implement on both sides
+  rpc IngestBatch(TelemetryBatch) returns (IngestAck);
+}
+
+message TelemetryBatch {
+  string device_id = 1;
+  int64 sent_at_unix_ms = 2;
+  uint32 interval_sec = 3;
+  repeated MetricPoint metrics = 4;
+  SystemInfo system_info = 5;
+}
+
+message SystemInfo {
+  string hostname = 1;
+  string os = 2;
+  string osName = 3;
+  string kernel = 4;
+  string cpuName = 5;
+  int64 memoryCapacity = 6;
+  int64 diskCapacity = 7;
+  repeated DockerContainer dockerContainers = 8;
+}
+
+message DockerContainer {
+  string name = 1;
+  string image = 2;
+  double cpuPercent = 3;
+  int64 ramUsageBytes = 4;
+  int64 ramLimitBytes = 5;
+  int64 netRxBytes = 6;
+  int64 netTxBytes = 7;
+  string health = 8;
+}
+
+message MetricPoint {
+  string name = 1;
+  double value = 2;
+  map<string, string> labels = 3;
+  int64 ts_unix_ms = 4;
+}
+
+message IngestAck {
+  bool ok = 1;
+  string message = 2;
+}
