@@ -49,16 +49,12 @@ struct DeviceDetailView: View {
     private func deviceContent(_ device: DeviceCard) -> some View {
         ScrollView {
             VStack(spacing: 12) {
-                // Range picker
                 rangePicker
 
-                // Summary cards
                 summaryRow(device)
 
-                // System info
                 systemInfoSection(device)
 
-                // Charts
                 MetricChartView(
                     title: "CPU Usage",
                     points: viewModel.sparklineChartPoints(named: "cpuPct"),
@@ -81,7 +77,6 @@ struct DeviceDetailView: View {
                     maxY: 100
                 )
 
-                // Network charts side by side
                 HStack(spacing: 8) {
                     MetricChartView(
                         title: "Net In",
@@ -102,12 +97,10 @@ struct DeviceDetailView: View {
                     )
                 }
 
-                // Docker containers
                 if let containers = device.containers, !containers.isEmpty {
                     containersSection(containers)
                 }
 
-                // Cloudflare tunnels
                 if let tunnels = device.tunnels, !tunnels.isEmpty {
                     tunnelsSection(tunnels)
                 }
@@ -132,7 +125,7 @@ struct DeviceDetailView: View {
                         }
                     } label: {
                         Text(viewModel.rangeLabels[range] ?? range)
-                            .font(.caption2.bold())
+                            .font(.geist(.bold, size: 11))
                             .tracking(0.5)
                             .padding(.horizontal, 10)
                             .padding(.vertical, 5)
@@ -143,7 +136,6 @@ struct DeviceDetailView: View {
                             .foregroundStyle(
                                 viewModel.selectedRange == range ? .black : .secondary
                             )
-                            .clipShape(RoundedRectangle(cornerRadius: 6))
                     }
                 }
             }
@@ -175,7 +167,7 @@ struct DeviceDetailView: View {
     private func systemInfoSection(_ device: DeviceCard) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("SYSTEM INFORMATION")
-                .font(.caption2.bold())
+                .font(.geist(.bold, size: 11))
                 .tracking(1)
                 .foregroundStyle(.secondary)
 
@@ -195,7 +187,6 @@ struct DeviceDetailView: View {
         }
         .padding(12)
         .background(Color(.secondarySystemGroupedBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 10))
     }
 
     // MARK: - Containers
@@ -203,7 +194,7 @@ struct DeviceDetailView: View {
     private func containersSection(_ containers: [DockerContainer]) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("DOCKER CONTAINERS")
-                .font(.caption2.bold())
+                .font(.geist(.bold, size: 11))
                 .tracking(1)
                 .foregroundStyle(.secondary)
 
@@ -211,9 +202,9 @@ struct DeviceDetailView: View {
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(container.name)
-                            .font(.caption.bold())
+                            .font(.geist(.bold, size: 12))
                         Text(container.image)
-                            .font(.caption2)
+                            .font(.geist(size: 11))
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                     }
@@ -222,16 +213,16 @@ struct DeviceDetailView: View {
 
                     HStack(spacing: 8) {
                         Text(container.health.uppercased())
-                            .font(.system(size: 8, weight: .bold))
+                            .font(.geist(.bold, size: 8))
                             .tracking(0.5)
                             .foregroundStyle(container.health == "healthy" ? .green : .orange)
 
                         Text("\(container.cpuPercent, specifier: "%.1f")%")
-                            .font(.caption2.bold().monospacedDigit())
+                            .font(.geistMono(.bold, size: 11))
                             .foregroundStyle(.secondary)
 
                         Text("\(Formatters.bytesToMB(container.ramUsageBytes), specifier: "%.0f") MB")
-                            .font(.caption2.bold().monospacedDigit())
+                            .font(.geistMono(.bold, size: 11))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -244,7 +235,6 @@ struct DeviceDetailView: View {
         }
         .padding(12)
         .background(Color(.secondarySystemGroupedBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 10))
     }
 
     // MARK: - Tunnels
@@ -252,7 +242,7 @@ struct DeviceDetailView: View {
     private func tunnelsSection(_ tunnels: [CloudflareTunnel]) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("CLOUDFLARE TUNNELS")
-                .font(.caption2.bold())
+                .font(.geist(.bold, size: 11))
                 .tracking(1)
                 .foregroundStyle(.secondary)
 
@@ -260,9 +250,9 @@ struct DeviceDetailView: View {
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(tunnel.tunnelName)
-                            .font(.caption.bold())
+                            .font(.geist(.bold, size: 12))
                         Text(tunnel.tunnelId)
-                            .font(.caption2)
+                            .font(.geist(size: 11))
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                     }
@@ -270,7 +260,7 @@ struct DeviceDetailView: View {
                     Spacer()
 
                     Text(tunnel.status.uppercased())
-                        .font(.system(size: 8, weight: .bold))
+                        .font(.geist(.bold, size: 8))
                         .tracking(0.5)
                         .foregroundStyle(tunnel.status == "healthy" ? .green : .red)
                 }
@@ -283,7 +273,6 @@ struct DeviceDetailView: View {
         }
         .padding(12)
         .background(Color(.secondarySystemGroupedBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 10))
     }
 
     // MARK: - Load
@@ -305,22 +294,21 @@ struct SummaryCard: View {
     var body: some View {
         VStack(spacing: 4) {
             Text(title)
-                .font(.system(size: 8, weight: .bold))
+                .font(.geist(.bold, size: 8))
                 .tracking(1)
                 .foregroundStyle(.secondary)
             Text(value)
-                .font(.title3.bold().monospacedDigit())
+                .font(.geistMono(.bold, size: 20))
                 .foregroundStyle(color)
             if let subtitle {
                 Text(subtitle)
-                    .font(.system(size: 8).monospacedDigit())
+                    .font(.geistMono(size: 8))
                     .foregroundStyle(.secondary)
             }
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 10)
         .background(Color(.secondarySystemGroupedBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 10))
     }
 }
 
@@ -331,11 +319,11 @@ struct InfoField: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(label)
-                .font(.system(size: 8, weight: .medium))
+                .font(.geist(.medium, size: 8))
                 .tracking(1)
                 .foregroundStyle(.secondary)
             Text(value)
-                .font(.caption)
+                .font(.geist(size: 12))
                 .lineLimit(1)
         }
     }

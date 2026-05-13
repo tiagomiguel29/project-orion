@@ -75,7 +75,7 @@ struct DashboardView: View {
             HStack(spacing: 3) {
                 Circle().fill(.green).frame(width: 5, height: 5)
                 Text("\(viewModel.onlineCount)")
-                    .font(.caption2.bold().monospacedDigit())
+                    .font(.geistMono(.bold, size: 11))
                     .foregroundStyle(.green)
             }
 
@@ -83,13 +83,13 @@ struct DashboardView: View {
                 HStack(spacing: 3) {
                     Circle().fill(.red).frame(width: 5, height: 5)
                     Text("\(viewModel.offlineCount)")
-                        .font(.caption2.bold().monospacedDigit())
+                        .font(.geistMono(.bold, size: 11))
                         .foregroundStyle(.red)
                 }
             }
 
             Text("/ \(viewModel.totalCount)")
-                .font(.caption2.monospacedDigit())
+                .font(.geistMono(size: 11))
                 .foregroundStyle(.secondary)
         }
     }

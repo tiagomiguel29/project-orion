@@ -25,7 +25,7 @@ struct StatusBadge: View {
                 .fill(color)
                 .frame(width: 6, height: 6)
             Text(label)
-                .font(.caption2.bold())
+                .font(.geist(.bold, size: 11))
                 .tracking(1)
                 .foregroundStyle(color)
         }

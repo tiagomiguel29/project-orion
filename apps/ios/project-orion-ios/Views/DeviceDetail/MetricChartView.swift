@@ -20,7 +20,7 @@ struct MetricChartView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text(title.uppercased())
-                    .font(.caption2.bold())
+                    .font(.geist(.bold, size: 11))
                     .tracking(1)
                     .foregroundStyle(.secondary)
 
@@ -28,7 +28,7 @@ struct MetricChartView: View {
 
                 if let last = points.last {
                     Text("\(last.value, specifier: "%.1f")\(unit)")
-                        .font(.caption.bold().monospacedDigit())
+                        .font(.geistMono(.bold, size: 12))
                         .foregroundStyle(color)
                 }
             }
@@ -39,7 +39,7 @@ struct MetricChartView: View {
                     .frame(height: 120)
                     .overlay {
                         Text("No data")
-                            .font(.caption)
+                            .font(.geist(size: 12))
                             .foregroundStyle(.secondary)
                     }
             } else {
@@ -73,7 +73,7 @@ struct MetricChartView: View {
                             .foregroundStyle(.secondary.opacity(0.3))
                         AxisValueLabel(format: .dateTime.hour().minute())
                             .foregroundStyle(.secondary)
-                            .font(.system(size: 8))
+                            .font(.geist(size: 8))
                     }
                 }
                 .chartYAxis {
@@ -82,7 +82,7 @@ struct MetricChartView: View {
                             .foregroundStyle(.secondary.opacity(0.3))
                         AxisValueLabel()
                             .foregroundStyle(.secondary)
-                            .font(.system(size: 8))
+                            .font(.geist(size: 8))
                     }
                 }
                 .frame(height: 120)
@@ -90,6 +90,5 @@ struct MetricChartView: View {
         }
         .padding(12)
         .background(Color(.secondarySystemGroupedBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 10))
     }
 }

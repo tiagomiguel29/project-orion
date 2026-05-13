@@ -10,27 +10,25 @@ struct ServerSetupView: View {
         VStack(spacing: 0) {
             Spacer()
 
-            // Logo area
             VStack(spacing: 8) {
                 Image(systemName: "server.rack")
                     .font(.system(size: 48))
                     .foregroundStyle(.green)
 
                 Text("[SCOPE]")
-                    .font(.title.bold())
+                    .font(.geist(.bold, size: 28))
                     .tracking(2)
 
                 Text("INFRASTRUCTURE MONITOR")
-                    .font(.caption2)
+                    .font(.geist(size: 11))
                     .tracking(3)
                     .foregroundStyle(.secondary)
             }
             .padding(.bottom, 48)
 
-            // Server URL input
             VStack(alignment: .leading, spacing: 12) {
                 Text("SERVER URL")
-                    .font(.caption2)
+                    .font(.geist(size: 11))
                     .tracking(2)
                     .foregroundStyle(.secondary)
 
@@ -41,7 +39,7 @@ struct ServerSetupView: View {
 
                 if let errorMessage {
                     Text(errorMessage)
-                        .font(.caption)
+                        .font(.geist(size: 12))
                         .foregroundStyle(.red)
                 }
             }
@@ -56,7 +54,7 @@ struct ServerSetupView: View {
                             .tint(.black)
                     }
                     Text("CONNECT")
-                        .font(.subheadline.bold())
+                        .font(.geist(.bold, size: 15))
                         .tracking(1)
                 }
                 .frame(maxWidth: .infinity)
@@ -64,6 +62,7 @@ struct ServerSetupView: View {
             }
             .buttonStyle(.borderedProminent)
             .tint(.green)
+            .clipShape(Rectangle())
             .padding(.horizontal, 32)
             .padding(.top, 24)
             .disabled(serverURL.trimmingCharacters(in: .whitespaces).isEmpty || isValidating)

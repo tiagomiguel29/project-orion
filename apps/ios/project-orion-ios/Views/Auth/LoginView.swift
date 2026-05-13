@@ -8,28 +8,26 @@ struct LoginView: View {
         VStack(spacing: 0) {
             Spacer()
 
-            // Logo
             VStack(spacing: 8) {
                 Image(systemName: "server.rack")
                     .font(.system(size: 48))
                     .foregroundStyle(.green)
 
                 Text("[SCOPE]")
-                    .font(.title.bold())
+                    .font(.geist(.bold, size: 28))
                     .tracking(2)
 
                 Text("SIGN IN")
-                    .font(.caption2)
+                    .font(.geist(size: 11))
                     .tracking(3)
                     .foregroundStyle(.secondary)
             }
             .padding(.bottom, 48)
 
-            // Form
             VStack(spacing: 16) {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("EMAIL")
-                        .font(.caption2)
+                        .font(.geist(size: 11))
                         .tracking(2)
                         .foregroundStyle(.secondary)
 
@@ -42,7 +40,7 @@ struct LoginView: View {
 
                 VStack(alignment: .leading, spacing: 6) {
                     Text("PASSWORD")
-                        .font(.caption2)
+                        .font(.geist(size: 11))
                         .tracking(2)
                         .foregroundStyle(.secondary)
 
@@ -52,7 +50,7 @@ struct LoginView: View {
 
                 if let error = viewModel.errorMessage {
                     Text(error)
-                        .font(.caption)
+                        .font(.geist(size: 12))
                         .foregroundStyle(.red)
                 }
             }
@@ -67,7 +65,7 @@ struct LoginView: View {
                             .tint(.black)
                     }
                     Text("LOGIN")
-                        .font(.subheadline.bold())
+                        .font(.geist(.bold, size: 15))
                         .tracking(1)
                 }
                 .frame(maxWidth: .infinity)
@@ -75,18 +73,18 @@ struct LoginView: View {
             }
             .buttonStyle(.borderedProminent)
             .tint(.green)
+            .clipShape(Rectangle())
             .padding(.horizontal, 32)
             .padding(.top, 24)
             .disabled(viewModel.isLoading)
 
             Spacer()
 
-            // Change server
             Button {
                 appState.resetServer()
             } label: {
                 Text("Change server")
-                    .font(.caption)
+                    .font(.geist(size: 12))
                     .foregroundStyle(.secondary)
             }
             .padding(.bottom, 16)

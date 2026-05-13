@@ -5,15 +5,14 @@ struct DeviceCardView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            // Header: name + status
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(device.externalId)
-                        .font(.subheadline.bold())
+                        .font(.geist(.bold, size: 15))
                         .lineLimit(1)
 
                     Text(device.ipAddress ?? device.hostname ?? "N/A")
-                        .font(.caption2)
+                        .font(.geist(size: 11))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
@@ -23,7 +22,6 @@ struct DeviceCardView: View {
                 StatusBadge(status: device.status)
             }
 
-            // Metrics row
             HStack(spacing: 12) {
                 MetricPill(
                     label: "CPU",
@@ -44,7 +42,6 @@ struct DeviceCardView: View {
                 )
             }
 
-            // CPU sparkline
             SparklineView(
                 values: sparklineValues(named: "cpuPct"),
                 color: .green,
@@ -53,7 +50,6 @@ struct DeviceCardView: View {
         }
         .padding(12)
         .background(Color(.secondarySystemGroupedBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 10))
     }
 
     private func sparklineValues(named name: String) -> [Double] {
@@ -76,11 +72,11 @@ struct MetricPill: View {
     var body: some View {
         VStack(spacing: 2) {
             Text(label)
-                .font(.system(size: 8, weight: .medium))
+                .font(.geist(.medium, size: 8))
                 .tracking(1)
                 .foregroundStyle(.secondary)
             Text(value)
-                .font(.caption.bold().monospacedDigit())
+                .font(.geistMono(.bold, size: 12))
                 .foregroundStyle(color)
         }
         .frame(maxWidth: .infinity)

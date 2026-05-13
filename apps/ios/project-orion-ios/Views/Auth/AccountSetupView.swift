@@ -14,16 +14,16 @@ struct AccountSetupView: View {
                     .foregroundStyle(.green)
 
                 Text("[SCOPE]")
-                    .font(.title.bold())
+                    .font(.geist(.bold, size: 28))
                     .tracking(2)
 
                 Text("INITIAL SETUP")
-                    .font(.caption2)
+                    .font(.geist(size: 11))
                     .tracking(3)
                     .foregroundStyle(.secondary)
 
                 Text("Create your admin account")
-                    .font(.caption)
+                    .font(.geist(size: 12))
                     .foregroundStyle(.secondary)
                     .padding(.top, 4)
             }
@@ -32,14 +32,14 @@ struct AccountSetupView: View {
             VStack(spacing: 14) {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("NAME")
-                        .font(.caption2).tracking(2).foregroundStyle(.secondary)
+                        .font(.geist(size: 11)).tracking(2).foregroundStyle(.secondary)
                     ScopeTextField(placeholder: "Admin", text: $viewModel.setupName)
                         .textContentType(.name)
                 }
 
                 VStack(alignment: .leading, spacing: 6) {
                     Text("EMAIL")
-                        .font(.caption2).tracking(2).foregroundStyle(.secondary)
+                        .font(.geist(size: 11)).tracking(2).foregroundStyle(.secondary)
                     ScopeTextField(placeholder: "admin@example.com", text: $viewModel.setupEmail)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
@@ -49,21 +49,21 @@ struct AccountSetupView: View {
 
                 VStack(alignment: .leading, spacing: 6) {
                     Text("PASSWORD")
-                        .font(.caption2).tracking(2).foregroundStyle(.secondary)
+                        .font(.geist(size: 11)).tracking(2).foregroundStyle(.secondary)
                     ScopeTextField(placeholder: "Password", text: $viewModel.setupPassword, isSecure: true)
                         .textContentType(.newPassword)
                 }
 
                 VStack(alignment: .leading, spacing: 6) {
                     Text("CONFIRM PASSWORD")
-                        .font(.caption2).tracking(2).foregroundStyle(.secondary)
+                        .font(.geist(size: 11)).tracking(2).foregroundStyle(.secondary)
                     ScopeTextField(placeholder: "Confirm", text: $viewModel.setupConfirmPassword, isSecure: true)
                         .textContentType(.newPassword)
                 }
 
                 if let error = viewModel.setupError {
                     Text(error)
-                        .font(.caption)
+                        .font(.geist(size: 12))
                         .foregroundStyle(.red)
                 }
             }
@@ -78,7 +78,7 @@ struct AccountSetupView: View {
                             .tint(.black)
                     }
                     Text("CREATE ACCOUNT")
-                        .font(.subheadline.bold())
+                        .font(.geist(.bold, size: 15))
                         .tracking(1)
                 }
                 .frame(maxWidth: .infinity)
@@ -86,6 +86,7 @@ struct AccountSetupView: View {
             }
             .buttonStyle(.borderedProminent)
             .tint(.green)
+            .clipShape(Rectangle())
             .padding(.horizontal, 32)
             .padding(.top, 24)
             .disabled(viewModel.isSetupLoading)
@@ -96,7 +97,7 @@ struct AccountSetupView: View {
                 appState.resetServer()
             } label: {
                 Text("Change server")
-                    .font(.caption)
+                    .font(.geist(size: 12))
                     .foregroundStyle(.secondary)
             }
             .padding(.bottom, 16)

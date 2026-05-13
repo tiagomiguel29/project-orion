@@ -37,7 +37,7 @@ struct ContentView: View {
                 .tint(.green)
 
             Text("INITIALIZING")
-                .font(.caption2)
+                .font(.geist(size: 11))
                 .tracking(3)
                 .foregroundStyle(.secondary)
         }

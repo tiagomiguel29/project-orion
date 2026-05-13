@@ -17,40 +17,38 @@ struct MfaView: View {
                     .foregroundStyle(.green)
 
                 Text("TWO-FACTOR AUTH")
-                    .font(.title3.bold())
+                    .font(.geist(.bold, size: 20))
                     .tracking(2)
 
                 Text("Enter your authentication code")
-                    .font(.caption)
+                    .font(.geist(size: 12))
                     .foregroundStyle(.secondary)
             }
             .padding(.bottom, 48)
 
-            // Always show TOTP input (primary MFA method)
             VStack(spacing: 16) {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("AUTHENTICATOR CODE")
-                        .font(.caption2)
+                        .font(.geist(size: 11))
                         .tracking(2)
                         .foregroundStyle(.secondary)
 
                     TextField("000000", text: $viewModel.totpCode)
                         .padding(12)
                         .background(Color(.systemGray6))
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
                         .overlay(
-                            RoundedRectangle(cornerRadius: 8)
+                            Rectangle()
                                 .stroke(Color(.systemGray4), lineWidth: 1)
                         )
                         .keyboardType(.numberPad)
                         .textContentType(.oneTimeCode)
                         .multilineTextAlignment(.center)
-                        .font(.title2.monospaced())
+                        .font(.geistMono(size: 22))
                 }
 
                 if let error = viewModel.mfaError {
                     Text(error)
-                        .font(.caption)
+                        .font(.geist(size: 12))
                         .foregroundStyle(.red)
                 }
             }
@@ -65,7 +63,7 @@ struct MfaView: View {
                             .tint(.black)
                     }
                     Text("VERIFY")
-                        .font(.subheadline.bold())
+                        .font(.geist(.bold, size: 15))
                         .tracking(1)
                 }
                 .frame(maxWidth: .infinity)
@@ -73,6 +71,7 @@ struct MfaView: View {
             }
             .buttonStyle(.borderedProminent)
             .tint(.green)
+            .clipShape(Rectangle())
             .padding(.horizontal, 32)
             .padding(.top, 24)
             .disabled(viewModel.isMfaLoading || viewModel.totpCode.isEmpty)
@@ -83,7 +82,7 @@ struct MfaView: View {
                 appState.logout()
             } label: {
                 Text("Cancel")
-                    .font(.caption)
+                    .font(.geist(size: 12))
                     .foregroundStyle(.secondary)
             }
             .padding(.bottom, 16)

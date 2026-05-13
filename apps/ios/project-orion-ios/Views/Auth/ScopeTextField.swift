@@ -1,6 +1,5 @@
 import SwiftUI
 
-/// Custom text field with visible background for dark mode
 struct ScopeTextField: View {
     let placeholder: String
     @Binding var text: String
@@ -15,12 +14,11 @@ struct ScopeTextField: View {
             }
         }
         .padding(12)
+        .font(.geist(size: 15))
         .background(Color(.systemGray6))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
         .overlay(
-            RoundedRectangle(cornerRadius: 8)
+            Rectangle()
                 .stroke(Color(.systemGray4), lineWidth: 1)
         )
-        .font(.subheadline)
     }
 }
