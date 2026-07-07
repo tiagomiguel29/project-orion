@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Plus, Copy, Check, Monitor, Terminal } from "lucide-react"
+import { Plus, Copy, Check, Monitor, Terminal, Rocket } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -34,7 +34,7 @@ export function AddDeviceDialog({ onDeviceCreated }: AddDeviceDialogProps) {
 
   // Result state
   const [agentToken, setAgentToken] = useState("")
-  const [copied, setCopied] = useState(false)
+  const [copiedKey, setCopiedKey] = useState<string | null>(null)
 
   function reset() {
     setStep("form")
@@ -43,7 +43,7 @@ export function AddDeviceDialog({ onDeviceCreated }: AddDeviceDialogProps) {
     setError("")
     setLoading(false)
     setAgentToken("")
-    setCopied(false)
+    setCopiedKey(null)
   }
 
   function handleOpenChange(next: boolean) {
@@ -79,11 +79,46 @@ export function AddDeviceDialog({ onDeviceCreated }: AddDeviceDialogProps) {
     }
   }
 
-  async function handleCopy() {
-    await navigator.clipboard.writeText(agentToken)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+  async function copy(text: string, key: string) {
+    await navigator.clipboard.writeText(text)
+    setCopiedKey(key)
+    setTimeout(() => setCopiedKey(null), 2000)
   }
+
+  // Derive the ingestion endpoint from the API URL host (TLS via the reverse
+  // proxy on 443). Falls back to a placeholder the operator can edit.
+  const backendHost = (() => {
+    try {
+      return new URL(process.env.NEXT_PUBLIC_API_URL ?? "").hostname || "<your-backend-host>"
+    } catch {
+      return "<your-backend-host>"
+    }
+  })()
+  const agentServerAddress = `${backendHost}:443`
+
+  const envVars = [
+    `AGENT_DEVICE_ID=${externalId.trim()}`,
+    `AGENT_ENROLLMENT_TOKEN=${agentToken}`,
+    `AGENT_SERVER_ADDRESS=${agentServerAddress}`,
+    `AGENT_TLS_INSECURE_SKIP_VERIFY=true`,
+  ].join("\n")
+
+  // One-liner mirroring apps/agent/docker-compose.yaml — deploy the agent on a
+  // target machine with a single copy-paste.
+  const deployCommand = [
+    "docker run -d --name project-orion-agent --restart unless-stopped",
+    "  --privileged --network host --pid host --read-only --tmpfs /tmp",
+    `  -e AGENT_DEVICE_ID=${externalId.trim()}`,
+    `  -e AGENT_ENROLLMENT_TOKEN=${agentToken}`,
+    `  -e AGENT_SERVER_ADDRESS=${agentServerAddress}`,
+    "  -e AGENT_TLS_INSECURE_SKIP_VERIFY=true",
+    "  -e HOST_PROC=/host/proc -e HOST_SYS=/host/sys -e HOST_ETC=/host/etc",
+    "  -e AGENT_DISK_PATH=/host -e AGENT_WAL_PATH=/var/lib/orion-agent/wal.db",
+    "  -v /var/run/docker.sock:/var/run/docker.sock:ro",
+    "  -v /proc:/host/proc:ro -v /sys:/host/sys:ro -v /etc:/host/etc:ro -v /:/host:ro",
+    "  -v orion-agent-wal:/var/lib/orion-agent",
+    "  ghcr.io/tiagomiguel29/project-orion-agent:latest",
+  ].join(" \\\n")
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -106,7 +141,7 @@ export function AddDeviceDialog({ onDeviceCreated }: AddDeviceDialogProps) {
                 Register Device
               </DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground">
-                Create a new device and get an agent token for it.
+                Create a new device and get an agent enrollment token for it.
               </DialogDescription>
             </DialogHeader>
 
@@ -176,25 +211,51 @@ export function AddDeviceDialog({ onDeviceCreated }: AddDeviceDialogProps) {
                 Device Created
               </DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground">
-                Use this token to configure the agent. It will not be shown again.
+                Use this enrollment token to configure the agent. It will not be shown again.
               </DialogDescription>
             </DialogHeader>
 
-            <div className="space-y-4">
+            <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
               <div className="space-y-2">
                 <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                  Agent Token
+                  Agent Enrollment Token
                 </Label>
                 <div className="relative">
                   <pre className="bg-background border border-border p-3 pr-10 text-[11px] font-mono text-foreground break-all whitespace-pre-wrap max-h-24 overflow-y-auto">
                     {agentToken}
                   </pre>
                   <button
-                    onClick={handleCopy}
+                    onClick={() => copy(agentToken, "token")}
                     className="absolute top-2 right-2 p-1.5 border border-border bg-card hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
-                    aria-label="Copy token"
+                    aria-label="Copy enrollment token"
                   >
-                    {copied ? (
+                    {copiedKey === "token" ? (
+                      <Check className="h-3 w-3 text-[#4ade80]" />
+                    ) : (
+                      <Copy className="h-3 w-3" />
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                  <Rocket className="h-3 w-3 inline mr-1" />
+                  One-Click Deploy (Docker)
+                </Label>
+                <p className="text-[10px] text-muted-foreground">
+                  Run on the target machine — Docker required. Buffers locally and reconnects on its own.
+                </p>
+                <div className="relative">
+                  <pre className="bg-background border border-border p-3 pr-10 text-[11px] font-mono text-muted-foreground whitespace-pre-wrap break-all max-h-48 overflow-y-auto">
+                    {deployCommand}
+                  </pre>
+                  <button
+                    onClick={() => copy(deployCommand, "deploy")}
+                    className="absolute top-2 right-2 p-1.5 border border-border bg-card hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
+                    aria-label="Copy deploy command"
+                  >
+                    {copiedKey === "deploy" ? (
                       <Check className="h-3 w-3 text-[#4ade80]" />
                     ) : (
                       <Copy className="h-3 w-3" />
@@ -206,15 +267,29 @@ export function AddDeviceDialog({ onDeviceCreated }: AddDeviceDialogProps) {
               <div className="space-y-2">
                 <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">
                   <Terminal className="h-3 w-3 inline mr-1" />
-                  Agent Environment Variables
+                  Or set environment variables
                 </Label>
-                <pre className={cn(
-                  "bg-background border border-border p-3 text-[11px] font-mono text-muted-foreground whitespace-pre-wrap break-all overflow-x-hidden"
-                )}>
-{`AGENT_DEVICE_ID=${externalId.trim()}
-AGENT_TOKEN=${agentToken}
-AGENT_SERVER_ADDRESS=<your-backend-url>:50051`}
-                </pre>
+                <div className="relative">
+                  <pre className={cn(
+                    "bg-background border border-border p-3 pr-10 text-[11px] font-mono text-muted-foreground whitespace-pre-wrap break-all overflow-x-hidden"
+                  )}>
+                    {envVars}
+                  </pre>
+                  <button
+                    onClick={() => copy(envVars, "env")}
+                    className="absolute top-2 right-2 p-1.5 border border-border bg-card hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
+                    aria-label="Copy environment variables"
+                  >
+                    {copiedKey === "env" ? (
+                      <Check className="h-3 w-3 text-[#4ade80]" />
+                    ) : (
+                      <Copy className="h-3 w-3" />
+                    )}
+                  </button>
+                </div>
+                <p className="text-[10px] text-muted-foreground/70">
+                  Drop <span className="font-mono">AGENT_TLS_INSECURE_SKIP_VERIFY</span> once the backend uses a trusted certificate.
+                </p>
               </div>
 
               <div className="flex justify-end pt-2">

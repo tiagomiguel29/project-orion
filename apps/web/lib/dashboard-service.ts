@@ -155,7 +155,7 @@ export interface CreateDeviceResponse {
 // ── Public API ──────────────────────────────────────────────────────
 
 /**
- * POST /devices — register a new device and receive an agent token.
+ * POST /devices — register a new device and receive an agent enrollment token.
  */
 export async function createDevice(
   token: string,
