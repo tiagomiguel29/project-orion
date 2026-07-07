@@ -11,23 +11,13 @@ const _jetbrainsMono = JetBrains_Mono({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: 'SCOPE // System Monitor',
   description: 'Tactical infrastructure monitoring dashboard',
-  generator: 'v0.app',
-  icons: {
-    icon: [
-      {
-        url: '/icon-light-32x32.png',
-        media: '(prefers-color-scheme: light)',
-      },
-      {
-        url: '/icon-dark-32x32.png',
-        media: '(prefers-color-scheme: dark)',
-      },
-      {
-        url: '/icon.svg',
-        type: 'image/svg+xml',
-      },
-    ],
-    apple: '/apple-icon.png',
+  applicationName: 'SCOPE',
+  // Icons (icon.svg, favicon.ico, apple-icon.png) and the web manifest are
+  // auto-detected by Next from the app/ directory — no manual links needed.
+  appleWebApp: {
+    capable: true,
+    title: 'SCOPE',
+    statusBarStyle: 'black-translucent',
   },
 }
 
