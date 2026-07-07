@@ -125,6 +125,11 @@ const RANGE_DURATIONS: Record<DashboardRange, number> = {
   all:    0, // special: uses data boundaries
 }
 
+/** Window length in ms for a range (0 for "all", which uses data boundaries). */
+export function getRangeDurationMs(range: DashboardRange): number {
+  return RANGE_DURATIONS[range]
+}
+
 const LIVE_EDGE_PAD_RANGES = new Set<DashboardRange>(["1m", "5m"])
 
 const LIVE_EDGE_PAD_FALLBACK_MS: Record<DashboardRange, number> = {

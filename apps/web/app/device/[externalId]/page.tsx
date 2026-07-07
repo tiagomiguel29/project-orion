@@ -113,7 +113,7 @@ export default function DevicePage({ params }: DevicePageProps) {
   )
 
   // WebSocket keeps device data live after initial REST fetch
-  const liveDevice = useRealtimeDevice(externalId, deviceData)
+  const liveDevice = useRealtimeDevice(externalId, deviceData, range)
 
   const system = liveDevice ? mapDeviceToSystem(liveDevice) : null
   const chartData = liveDevice ? mapDeviceToChartData(liveDevice, range, chartNowMs) : null
