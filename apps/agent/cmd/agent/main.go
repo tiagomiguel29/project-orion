@@ -101,12 +101,27 @@ func collectLoop(ctx context.Context, cfg config.Config, c *collector.Collector,
 
 // sendLoop drains the WAL oldest-first with at-least-once semantics: a batch is
 // deleted only once the server confirms it was persisted (or is a duplicate).
+const heartbeatEvery = 30 * time.Second
+
 func sendLoop(ctx context.Context, client *ingest.Client, tokens *auth.TokenManager, wal *buffer.WAL) {
 	b := newBackoff()
+
+	// Success is otherwise silent; emit a periodic heartbeat so a healthy agent
+	// is visibly alive, plus a one-time line on the first successful delivery.
+	delivered := 0
+	connected := false
+	lastBeat := time.Now()
 
 	for {
 		if ctx.Err() != nil {
 			return
+		}
+
+		if time.Since(lastBeat) >= heartbeatEvery {
+			n, _ := wal.Len()
+			log.Printf("healthy: delivered=%d buffered=%d", delivered, n)
+			delivered = 0
+			lastBeat = time.Now()
 		}
 
 		item, err := wal.Oldest()
@@ -150,6 +165,11 @@ func sendLoop(ctx context.Context, client *ingest.Client, tokens *auth.TokenMana
 			// Durably accepted (or duplicate) — remove from the WAL.
 			_ = wal.Delete(item.Key)
 			b.reset()
+			delivered++
+			if !connected {
+				log.Println("ingest connected — delivering telemetry")
+				connected = true
+			}
 
 		case actionRefresh:
 			log.Println("access token rejected — refreshing")
