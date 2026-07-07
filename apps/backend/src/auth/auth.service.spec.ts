@@ -1,10 +1,16 @@
 import { UnauthorizedException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
 import { Repository } from 'typeorm';
 import { AuthService } from './auth.service';
 import { UserEntity } from 'src/user/entities/user.entity';
+import { UserPasskeyEntity } from './entities/user-passkey.entity';
+
+// bcrypt's native exports are non-configurable, so jest.spyOn can't redefine
+// them — mock the module instead.
+jest.mock('bcrypt');
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -20,6 +26,18 @@ describe('AuthService', () => {
             findOne: jest.fn(),
             save: jest.fn(),
           },
+        },
+        {
+          provide: getRepositoryToken(UserPasskeyEntity),
+          useValue: {
+            findOne: jest.fn(),
+            find: jest.fn(),
+            save: jest.fn(),
+          },
+        },
+        {
+          provide: ConfigService,
+          useValue: { get: jest.fn(), getOrThrow: jest.fn() },
         },
         {
           provide: 'USER_JWT',
@@ -51,8 +69,8 @@ describe('AuthService', () => {
     } as UserEntity;
 
     usersRepo.findOne.mockResolvedValue(user);
-    jest.spyOn(bcrypt, 'compare').mockResolvedValue(true as never);
-    jest.spyOn(bcrypt, 'hash').mockResolvedValue('new-hash' as never);
+    (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+    (bcrypt.hash as jest.Mock).mockResolvedValue('new-hash');
     usersRepo.save.mockResolvedValue(user);
 
     await service.changePassword('user-1', 'current-password', 'new-password-1');
@@ -69,7 +87,7 @@ describe('AuthService', () => {
     } as UserEntity;
 
     usersRepo.findOne.mockResolvedValue(user);
-    jest.spyOn(bcrypt, 'compare').mockResolvedValue(false as never);
+    (bcrypt.compare as jest.Mock).mockResolvedValue(false);
 
     await expect(service.changePassword('user-1', 'wrong-password', 'new-password-1')).rejects.toBeInstanceOf(UnauthorizedException);
     expect(usersRepo.save).not.toHaveBeenCalled();
