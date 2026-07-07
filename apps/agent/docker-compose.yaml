@@ -12,15 +12,21 @@ services:
       HOST_SYS: /host/sys
       HOST_ETC: /host/etc
       AGENT_DISK_PATH: /host
+      # Persist the store-and-forward WAL so buffered telemetry survives restarts.
+      AGENT_WAL_PATH: /var/lib/orion-agent/wal.db
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
       - /etc:/host/etc:ro
       - /:/host:ro
+      - agent_wal:/var/lib/orion-agent
     privileged: true
     network_mode: host
     pid: host
     read_only: true
     tmpfs:
       - /tmp
+
+volumes:
+  agent_wal:
