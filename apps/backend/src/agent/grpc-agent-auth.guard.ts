@@ -7,7 +7,7 @@ import { AgentService } from './agent.service';
 export class GrpcAgentJwtGuard implements CanActivate {
   constructor(private readonly auth: AgentService) {}
 
-  canActivate(context: ExecutionContext): boolean {
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     const metadata = context.switchToRpc().getContext();
 
     const authHeader = metadata?.get('authorization')?.[0] as
@@ -33,7 +33,8 @@ export class GrpcAgentJwtGuard implements CanActivate {
     }
 
     try {
-      const payload = this.auth.verify(token);
+      // Verifies signature, scope === 'ingest', expiry, and revocation.
+      const payload = await this.auth.verifyAccess(token);
       // attach authenticated deviceId
       context.switchToRpc().getContext().agent = { deviceId: payload.sub };
     } catch (error) {

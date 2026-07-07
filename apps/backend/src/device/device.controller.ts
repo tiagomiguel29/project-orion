@@ -33,8 +33,9 @@ export class DeviceController {
       hostname: dto.hostname,
     });
 
-    // Mint agent JWT (sub=device.externalId)
-    const token = this.agents.mint(device.externalId);
+    // Mint the durable enrollment token (sub=device.externalId). The agent
+    // stores this once and exchanges it for short-lived access tokens.
+    const token = this.agents.mintEnrollment(device.externalId);
 
     const payload = {
       token,
@@ -56,7 +57,18 @@ export class DeviceController {
     @Param('externalId') externalId: string,
   ): Promise<BaseResponse<null>> {
     await this.devices.deleteDevice(externalId);
+    // Revoke so any outstanding tokens for a reused externalId can't ingest.
+    await this.agents.revoke(externalId);
     return new BaseResponse(true, 'Device and all related data deleted', null);
+  }
+
+  @UseGuards(JwtGuard)
+  @Post(':externalId/revoke')
+  async revokeDevice(
+    @Param('externalId') externalId: string,
+  ): Promise<BaseResponse<null>> {
+    await this.agents.revoke(externalId);
+    return new BaseResponse(true, 'Device credentials revoked', null);
   }
 
   @UseGuards(JwtGuard)
