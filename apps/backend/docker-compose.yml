@@ -30,9 +30,11 @@ services:
   backend:
     build: .
     restart: unless-stopped
-    ports:
-      - "${HTTP_PORT:-4000}:${HTTP_PORT:-4000}"
-      - "${GRPC_PORT:-50052}:${GRPC_PORT:-50052}"
+    # Ports are NOT published to the host — the backend is reached only through
+    # the Caddy reverse proxy, so raw plaintext gRPC/HTTP is never exposed.
+    expose:
+      - "${HTTP_PORT:-4000}"
+      - "${GRPC_PORT:-50052}"
     environment:
       # ── Server ──────────────────────────────────────
       HTTP_PORT: ${HTTP_PORT:-4000}
@@ -50,6 +52,7 @@ services:
       USER_JWT_SECRET: ${USER_JWT_SECRET:-change-me-user-secret}
 
       # ── Optional ────────────────────────────────────
+      AGENT_ACCESS_TTL_SEC: ${AGENT_ACCESS_TTL_SEC:-900}
       CORS_ORIGIN: ${CORS_ORIGIN:-*}
       OFFLINE_AFTER_SEC: ${OFFLINE_AFTER_SEC:-20}
     depends_on:
@@ -58,5 +61,28 @@ services:
       redis:
         condition: service_healthy
 
+  # TLS terminator + protocol router. Publishes the only host-facing ports.
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      PROXY_DOMAIN: ${PROXY_DOMAIN:-localhost}
+      HTTP_PORT: ${HTTP_PORT:-4000}
+      GRPC_PORT: ${GRPC_PORT:-50052}
+      # Local dev default is "tls internal". In production set CADDY_TLS="" and a
+      # real PROXY_DOMAIN so Caddy provisions a Let's Encrypt certificate.
+      CADDY_TLS: ${CADDY_TLS:-tls internal}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - backend
+
 volumes:
   pgdata:
+  caddy_data:
+  caddy_config:

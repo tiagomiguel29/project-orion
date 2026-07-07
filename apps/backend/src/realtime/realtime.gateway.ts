@@ -13,8 +13,13 @@ import { Redis } from 'ioredis';
 import { WsJwtGuard } from '../auth/ws-jwt.guard';
 import { RealtimeService } from './realtime.service';
 
+// Honor the CORS_ORIGIN allowlist (comma-separated) rather than a blanket "*".
+const wsOrigin = process.env.CORS_ORIGIN
+  ? process.env.CORS_ORIGIN.split(',').map((o) => o.trim())
+  : '*';
+
 @WebSocketGateway({
-  cors: { origin: '*', credentials: false },
+  cors: { origin: wsOrigin, credentials: false },
 })
 export class RealtimeGateway {
   @WebSocketServer()

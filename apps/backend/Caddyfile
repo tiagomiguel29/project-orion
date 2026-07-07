@@ -1,0 +1,23 @@
+# Reverse proxy / TLS terminator for Project Orion ingestion + API.
+#
+# Terminates TLS on 443 and routes by protocol to the backend:
+#   - gRPC (Content-Type: application/grpc*) -> backend gRPC port over h2c
+#   - everything else (REST + Socket.IO WS)  -> backend HTTP port
+#
+# TLS:
+#   - Local/dev:  CADDY_TLS defaults to "tls internal" (Caddy's local CA). Point
+#                 the agent at this host with AGENT_TLS_INSECURE_SKIP_VERIFY=true.
+#   - Production: set PROXY_DOMAIN to a real hostname and CADDY_TLS="" so Caddy
+#                 auto-provisions a Let's Encrypt certificate. Agents then verify
+#                 against the system trust store — no per-agent cert wrangling.
+
+{$PROXY_DOMAIN:localhost} {
+	{$CADDY_TLS:tls internal}
+
+	encode gzip
+
+	@grpc header Content-Type application/grpc*
+	reverse_proxy @grpc h2c://backend:{$GRPC_PORT:50052}
+
+	reverse_proxy backend:{$HTTP_PORT:4000}
+}
