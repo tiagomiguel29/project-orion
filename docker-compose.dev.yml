@@ -1,0 +1,81 @@
+# Test / development environment for Project Orion.
+#
+#   docker compose -f docker-compose.dev.yml up --build
+#
+# Brings up Postgres, Redis, the NestJS backend (HTTP + gRPC) and the Next.js
+# web dashboard. Postgres/Redis are internal only; the backend and web are
+# published to the host so you can use the app and point the Go agent at the
+# gRPC port. Everything runs over plaintext for local convenience — the
+# TLS/reverse-proxy setup lives in apps/backend/docker-compose.yml.
+#
+# Ports (override via env): web ${WEB_PORT:-3000}, backend HTTP ${HTTP_PORT:-4000},
+# backend gRPC ${GRPC_PORT:-50052}.
+
+name: project-orion-dev
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-orion}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-orion}
+      POSTGRES_DB: ${POSTGRES_DB:-orion}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-orion}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+    restart: unless-stopped
+    environment:
+      HTTP_PORT: 4000
+      GRPC_PORT: 50052
+      DATABASE_URL: postgresql://${POSTGRES_USER:-orion}:${POSTGRES_PASSWORD:-orion}@postgres:5432/${POSTGRES_DB:-orion}
+      REDIS_URL: redis://redis:6379
+      AGENT_JWT_SECRET: ${AGENT_JWT_SECRET:-dev-agent-secret}
+      USER_JWT_SECRET: ${USER_JWT_SECRET:-dev-user-secret}
+      AGENT_ACCESS_TTL_SEC: ${AGENT_ACCESS_TTL_SEC:-900}
+      # Must match the web origin so browser calls are allowed.
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
+      OFFLINE_AFTER_SEC: ${OFFLINE_AFTER_SEC:-20}
+    ports:
+      - "${HTTP_PORT:-4000}:4000"
+      - "${GRPC_PORT:-50052}:50052"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        # Inlined into the browser bundle at build time — must be the URL the
+        # browser uses to reach the backend (the host-published HTTP port).
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:4000}
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:

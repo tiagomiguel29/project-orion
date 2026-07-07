@@ -1,0 +1,18 @@
+# Keep the (root) build context small and reproducible.
+**/node_modules
+**/dist
+**/.next
+**/coverage
+**/tsconfig.tsbuildinfo
+
+.git
+.claude
+**/.env
+**/.env.*
+!**/.env.example
+
+# Not needed to build the backend or web images.
+apps/ios
+apps/agent
+
+**/*.log

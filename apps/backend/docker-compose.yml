@@ -28,7 +28,10 @@ services:
       retries: 5
 
   backend:
-    build: .
+    build:
+      # Root context: npm workspace monorepo (lockfile lives at the repo root).
+      context: ../..
+      dockerfile: apps/backend/Dockerfile
     restart: unless-stopped
     # Ports are NOT published to the host — the backend is reached only through
     # the Caddy reverse proxy, so raw plaintext gRPC/HTTP is never exposed.
