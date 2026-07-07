@@ -5,16 +5,49 @@ package telemetry.v1;
 option go_package = "github.com/tiagomiguel29/project-orion-agent/telemetry/gen;telemetry";
 
 service TelemetryIngestService {
-  // v1: simplest to implement on both sides
+  // Ingest a batch of telemetry. Requires a short-lived access token in the
+  // "authorization" metadata header.
   rpc IngestBatch(TelemetryBatch) returns (IngestAck);
+
+  // Exchange a durable enrollment credential for a short-lived access token.
+  // Authenticated by the enrollment token in the request body (no access-token
+  // guard), so an agent that has been offline for days can re-authenticate on
+  // reconnect without any manual token provisioning.
+  rpc ExchangeToken(TokenExchangeRequest) returns (TokenExchangeResponse);
 }
 
 message TelemetryBatch {
+  // NOTE: device_id is ignored by the server — device identity is taken from
+  // the authenticated access token (sub). Left on the wire for compatibility.
   string device_id = 1;
   int64 sent_at_unix_ms = 2;
   uint32 interval_sec = 3;
   repeated MetricPoint metrics = 4;
   SystemInfo system_info = 5;
+  // Idempotency key: a UUID generated once when the batch is created, persisted
+  // in the agent WAL, and reused on every retry so the server can dedupe.
+  string batch_id = 6;
+}
+
+message TokenExchangeRequest {
+  string enrollment_token = 1;
+}
+
+message TokenExchangeResponse {
+  string access_token = 1;
+  int64 expires_in_sec = 2;
+}
+
+enum IngestStatus {
+  INGEST_STATUS_UNSPECIFIED = 0;
+  // Durably persisted (or duplicate) — the agent may drop it from the WAL.
+  INGEST_STATUS_ACCEPTED = 1;
+  // Already seen (idempotent replay) — safe to drop from the WAL.
+  INGEST_STATUS_DUPLICATE = 2;
+  // Transient failure — keep in the WAL and retry with backoff.
+  INGEST_STATUS_RETRY = 3;
+  // Auth failed/expired — refresh the access token, then retry.
+  INGEST_STATUS_UNAUTHENTICATED = 4;
 }
 
 message SystemInfo {
@@ -47,6 +80,8 @@ message MetricPoint {
 }
 
 message IngestAck {
+  // Deprecated: retained for wire compatibility. Prefer `status`.
   bool ok = 1;
   string message = 2;
+  IngestStatus status = 3;
 }
