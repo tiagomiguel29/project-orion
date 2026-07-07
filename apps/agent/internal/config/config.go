@@ -18,6 +18,10 @@ type Config struct {
 	// (e.g. Caddy's internal CA) without disabling verification entirely.
 	TLSInsecureSkipVerify bool   `env:"AGENT_TLS_INSECURE_SKIP_VERIFY" envDefault:"false"`
 	TLSCAFile             string `env:"AGENT_TLS_CA_FILE" envDefault:""`
+	// LOCAL DEV ONLY: dial the ingestion endpoint over plaintext (no TLS), e.g.
+	// straight to the backend gRPC port in the dev compose. Never enable this
+	// over the public internet.
+	TLSDisable bool `env:"AGENT_TLS_DISABLE" envDefault:"false"`
 
 	// ── Buffering ─────────────────────────────────────────────────────────
 	// Disk-backed write-ahead log so telemetry survives network blips, backend

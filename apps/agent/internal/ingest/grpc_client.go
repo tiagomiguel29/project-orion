@@ -11,6 +11,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
@@ -19,6 +20,8 @@ import (
 
 // TLSConfig controls how the agent trusts the ingestion endpoint.
 type TLSConfig struct {
+	// Disable turns off TLS entirely and dials over plaintext. Local dev only.
+	Disable bool
 	// InsecureSkipVerify disables certificate verification (local testing only).
 	InsecureSkipVerify bool
 	// CAFile, if set, is a PEM bundle of extra roots to trust (e.g. a private CA).
@@ -57,6 +60,9 @@ func NewWithConn(conn *grpc.ClientConn) *Client {
 }
 
 func buildTransportCreds(tlsCfg TLSConfig) (credentials.TransportCredentials, error) {
+	if tlsCfg.Disable {
+		return insecure.NewCredentials(), nil
+	}
 	conf := &tls.Config{
 		MinVersion:         tls.VersionTLS12,
 		InsecureSkipVerify: tlsCfg.InsecureSkipVerify,

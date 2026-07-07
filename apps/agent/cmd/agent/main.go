@@ -30,9 +30,9 @@ func main() {
 		log.Fatalf("config error: %v", err)
 	}
 
-	log.Printf("agent started device=%s server=%s interval=%ds disk_path=%s tls_skip_verify=%v wal=%s",
+	log.Printf("agent started device=%s server=%s interval=%ds disk_path=%s tls_disable=%v tls_skip_verify=%v wal=%s",
 		cfg.DeviceID, cfg.ServerAddress, cfg.IntervalSec, cfg.DiskPath,
-		cfg.TLSInsecureSkipVerify, cfg.WALPath,
+		cfg.TLSDisable, cfg.TLSInsecureSkipVerify, cfg.WALPath,
 	)
 
 	// Graceful shutdown: cancel the context on SIGINT/SIGTERM so both loops
@@ -48,6 +48,7 @@ func main() {
 	defer func() { _ = wal.Close() }()
 
 	client, err := ingest.New(cfg.ServerAddress, ingest.TLSConfig{
+		Disable:            cfg.TLSDisable,
 		InsecureSkipVerify: cfg.TLSInsecureSkipVerify,
 		CAFile:             cfg.TLSCAFile,
 	})

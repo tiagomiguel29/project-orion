@@ -14,6 +14,16 @@ import (
 	"time"
 )
 
+func TestBuildTransportCreds_Disabled(t *testing.T) {
+	creds, err := buildTransportCreds(TLSConfig{Disable: true})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if creds.Info().SecurityProtocol != "insecure" {
+		t.Fatalf("expected insecure creds, got %q", creds.Info().SecurityProtocol)
+	}
+}
+
 func TestBuildTransportCreds_SkipVerify(t *testing.T) {
 	creds, err := buildTransportCreds(TLSConfig{InsecureSkipVerify: true})
 	if err != nil {
