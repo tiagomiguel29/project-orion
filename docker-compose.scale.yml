@@ -1,0 +1,122 @@
+# Horizontally-scaled stack: TimescaleDB + pgbouncer + Redis, a one-shot
+# migration job, N backend replicas behind a gRPC/HTTP L7 load balancer.
+#
+#   docker compose -f docker-compose.scale.yml up --build
+#   docker compose -f docker-compose.scale.yml up --build --scale backend=3
+#
+# Differences vs the dev compose: schema is applied by migrations (not
+# synchronize), Redis is required, replicas share Postgres/Redis, and Caddy
+# load-balances across replicas.
+
+name: project-orion-scale
+
+services:
+  timescaledb:
+    image: timescale/timescaledb:latest-pg17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-orion}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-orion}
+      POSTGRES_DB: ${POSTGRES_DB:-orion}
+    volumes:
+      - tsdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-orion}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Transaction pooling so many replicas don't exhaust Postgres connections.
+  pgbouncer:
+    image: edoburu/pgbouncer:latest
+    restart: unless-stopped
+    environment:
+      DB_HOST: timescaledb
+      DB_PORT: "5432"
+      DB_USER: ${POSTGRES_USER:-orion}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-orion}
+      DB_NAME: ${POSTGRES_DB:-orion}
+      POOL_MODE: transaction
+      MAX_CLIENT_CONN: "500"
+      DEFAULT_POOL_SIZE: "20"
+      AUTH_TYPE: scram-sha-256
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # One-shot: applies migrations against Postgres directly (not pgbouncer —
+  # migrations need a session), then exits. Backends wait for it to succeed.
+  migrate:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+    command: ["npm", "run", "migration:run:prod"]
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-orion}:${POSTGRES_PASSWORD:-orion}@timescaledb:5432/${POSTGRES_DB:-orion}
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+    restart: "no"
+
+  backend:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+    restart: unless-stopped
+    deploy:
+      replicas: 2
+    environment:
+      HTTP_PORT: 4000
+      GRPC_PORT: 50052
+      # App talks to Postgres through pgbouncer; schema owned by migrations.
+      DATABASE_URL: postgresql://${POSTGRES_USER:-orion}:${POSTGRES_PASSWORD:-orion}@pgbouncer:5432/${POSTGRES_DB:-orion}
+      DB_SYNCHRONIZE: "false"
+      DB_POOL_MAX: ${DB_POOL_MAX:-10}
+      REDIS_URL: redis://redis:6379
+      REQUIRE_REDIS: "true"
+      AGENT_JWT_SECRET: ${AGENT_JWT_SECRET:-change-me-agent-secret}
+      USER_JWT_SECRET: ${USER_JWT_SECRET:-change-me-user-secret}
+      AGENT_ACCESS_TTL_SEC: ${AGENT_ACCESS_TTL_SEC:-900}
+      CORS_ORIGIN: ${CORS_ORIGIN:-*}
+      OFFLINE_AFTER_SEC: ${OFFLINE_AFTER_SEC:-20}
+      DASHBOARD_EMIT_THROTTLE_MS: ${DASHBOARD_EMIT_THROTTLE_MS:-2000}
+    expose:
+      - "4000"
+      - "50052"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      PROXY_DOMAIN: ${PROXY_DOMAIN:-localhost}
+      HTTP_PORT: "4000"
+      GRPC_PORT: "50052"
+      CADDY_TLS: ${CADDY_TLS:-tls internal}
+    volumes:
+      - ./apps/backend/Caddyfile.scale:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - backend
+
+volumes:
+  tsdata:
+  caddy_data:
+  caddy_config:

@@ -3,6 +3,9 @@ import { Column, Entity, Index, PrimaryGeneratedColumn } from 'typeorm';
 @Entity('metrics')
 @Index(['deviceId', 'time'])
 @Index(['name'])
+// Serves the dashboard "latest value per (device, metric)" query
+// (distinctOn(deviceId, name) ORDER BY ... time DESC) and per-metric sparklines.
+@Index(['deviceId', 'name', 'time'])
 export class MetricEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;

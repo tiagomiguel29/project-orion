@@ -1,0 +1,29 @@
+# TLS terminator + gRPC/HTTP L7 load balancer across backend replicas.
+#
+# `dynamic a` re-resolves the `backend` service name (Docker DNS returns one A
+# record per replica) every few seconds and load-balances across them — so
+# scaling `backend` up/down is picked up without a restart. gRPC and HTTP/WS are
+# routed by Content-Type.
+
+{$PROXY_DOMAIN:localhost} {
+	{$CADDY_TLS:tls internal}
+	encode gzip
+
+	@grpc header Content-Type application/grpc*
+	reverse_proxy @grpc h2c://backend:{$GRPC_PORT:50052} {
+		dynamic a {
+			name backend
+			port {$GRPC_PORT:50052}
+			refresh 5s
+		}
+	}
+
+	reverse_proxy backend:{$HTTP_PORT:4000} {
+		dynamic a {
+			name backend
+			port {$HTTP_PORT:4000}
+			refresh 5s
+		}
+		lb_policy least_conn
+	}
+}
