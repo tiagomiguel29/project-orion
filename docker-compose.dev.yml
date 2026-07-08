@@ -54,6 +54,10 @@ services:
       # Must match the web origin so browser calls are allowed.
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
       OFFLINE_AFTER_SEC: ${OFFLINE_AFTER_SEC:-20}
+      # Single-instance dev: let TypeORM create the schema. Multi-instance/prod
+      # runs migrations instead (see docker-compose.scale.yml).
+      DB_SYNCHRONIZE: ${DB_SYNCHRONIZE:-true}
+      DASHBOARD_EMIT_THROTTLE_MS: ${DASHBOARD_EMIT_THROTTLE_MS:-2000}
     ports:
       - "${HTTP_PORT:-4000}:4000"
       - "${GRPC_PORT:-50052}:50052"

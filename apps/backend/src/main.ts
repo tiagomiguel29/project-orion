@@ -26,6 +26,10 @@ async function bootstrap() {
 
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true, forbidNonWhitelisted: true }));
 
+  // Run OnModuleDestroy/OnApplicationShutdown on SIGTERM/SIGINT so the metrics
+  // queue drains and connections close cleanly on scale-in / rolling deploys.
+  app.enableShutdownHooks();
+
   app.use(morgan('dev'));
 
   // Enable CORS with origin from env var and default to * if not set

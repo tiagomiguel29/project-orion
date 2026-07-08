@@ -130,8 +130,9 @@ export class TelemetryController {
       // DURABLE PATH: wait for the DB commit before acking.
       await this.metricsQueue.enqueue(deviceId, points);
 
-      // Fire-and-forget: push the recomputed dashboard card to subscribers.
-      void this.emitDashboardUpdate(deviceId);
+      // Fire-and-forget: push the recomputed dashboard card to subscribers,
+      // throttled per device so ingest rate doesn't drive DB + pub/sub load.
+      this.scheduleDashboardUpdate(deviceId);
 
       return ingestAck(IngestStatus.ACCEPTED, 'accepted');
     } catch (err: any) {
@@ -142,6 +143,53 @@ export class TelemetryController {
         `ingest RETRY device=${deviceId} batch=${batchId}: ${err?.message ?? err}`,
       );
       return ingestAck(IngestStatus.RETRY, 'persistence failed, retry');
+    }
+  }
+
+  // Per-device throttle state for dashboard.update emits.
+  private readonly dashboardThrottleMs = Number(
+    process.env.DASHBOARD_EMIT_THROTTLE_MS ?? 2000,
+  );
+  private readonly dashboardThrottle = new Map<
+    string,
+    { lastMs: number; timer?: NodeJS.Timeout }
+  >();
+
+  /**
+   * Coalesce dashboard.update emits per device to at most one per throttle
+   * window (leading + trailing), so a device ingesting every few seconds — or
+   * a burst drained after an outage — doesn't trigger a recompute-and-broadcast
+   * per batch. Bounds DB query and Redis pub/sub load independent of ingest rate.
+   */
+  private scheduleDashboardUpdate(deviceId: string) {
+    const now = Date.now();
+    const entry = this.dashboardThrottle.get(deviceId);
+
+    if (!entry) {
+      this.dashboardThrottle.set(deviceId, { lastMs: now });
+      void this.emitDashboardUpdate(deviceId);
+      return;
+    }
+
+    const elapsed = now - entry.lastMs;
+    if (elapsed >= this.dashboardThrottleMs) {
+      entry.lastMs = now;
+      if (entry.timer) {
+        clearTimeout(entry.timer);
+        entry.timer = undefined;
+      }
+      void this.emitDashboardUpdate(deviceId);
+      return;
+    }
+
+    // Inside the window — schedule a single trailing emit for the latest state.
+    if (!entry.timer) {
+      entry.timer = setTimeout(() => {
+        entry.lastMs = Date.now();
+        entry.timer = undefined;
+        void this.emitDashboardUpdate(deviceId);
+      }, this.dashboardThrottleMs - elapsed);
+      entry.timer.unref?.();
     }
   }
 
