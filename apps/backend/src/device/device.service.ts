@@ -99,8 +99,6 @@ export class DeviceService {
       take: 5000, // safety cap per tick
     });
 
-    console.log('staleOnline', staleOnline);
-
     if (staleOnline.length === 0) return 0;
 
     const now = new Date();
