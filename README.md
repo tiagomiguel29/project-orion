@@ -83,6 +83,28 @@ docker compose -f docker-compose.dev.yml down -v
 > The TLS / reverse-proxy (Caddy) deployment used by the agent over the public
 > internet lives in `apps/backend/docker-compose.yml`.
 
+### Verify the complete local flow
+
+With the development stack running and Go installed, set `FLOW_PASSWORD` to
+the local test account's password and run `npm run test:flow`. On a fresh
+database the script creates the first account (`flow-test@example.com`);
+otherwise it signs into that account. Set `FLOW_EMAIL` to use another account
+without MFA.
+
+The check registers a unique test device, runs the real Go agent, verifies
+authenticated WebSocket telemetry and successive dashboard/chart updates,
+reloads persisted history, then stops the agent and waits for the offline
+transition. It leaves the account, device and history available for inspection.
+Use a disposable development database. `FLOW_API_URL` and `FLOW_GRPC_ADDRESS`
+override the default local endpoints; `FLOW_AGENT_BINARY` can point to a
+prebuilt agent instead of running it through Go.
+
+The device dialog generates agent instructions for the development stack's
+published gRPC port. For custom deployments, set
+`NEXT_PUBLIC_AGENT_SERVER_ADDRESS` and `NEXT_PUBLIC_AGENT_TLS_DISABLE` before
+building the web app. Use plaintext only for local development. Run the endpoint
+regression checks with `node --experimental-strip-types --test scripts/agent-config.test.mjs`.
+
 ## Environment files
 
 - `apps/web/.env.example`

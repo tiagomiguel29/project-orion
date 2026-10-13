@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label"
 import { useAuth } from "@/components/auth-provider"
 import { createDevice } from "@/lib/dashboard-service"
 import { cn } from "@/lib/utils"
+import { getAgentConnection } from "@/lib/agent-config"
 
 interface AddDeviceDialogProps {
   onDeviceCreated?: () => void
@@ -85,22 +86,21 @@ export function AddDeviceDialog({ onDeviceCreated }: AddDeviceDialogProps) {
     setTimeout(() => setCopiedKey(null), 2000)
   }
 
-  // Derive the ingestion endpoint from the API URL host (TLS via the reverse
-  // proxy on 443). Falls back to a placeholder the operator can edit.
-  const backendHost = (() => {
-    try {
-      return new URL(process.env.NEXT_PUBLIC_API_URL ?? "").hostname || "<your-backend-host>"
-    } catch {
-      return "<your-backend-host>"
-    }
-  })()
-  const agentServerAddress = `${backendHost}:443`
+  const agentConnection = getAgentConnection(
+    process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000",
+    process.env.NEXT_PUBLIC_AGENT_SERVER_ADDRESS,
+    process.env.NEXT_PUBLIC_AGENT_TLS_DISABLE,
+  )
+  const agentServerAddress = agentConnection.address
+  const tlsSetting = agentConnection.tlsDisable
+    ? "AGENT_TLS_DISABLE=true"
+    : "AGENT_TLS_INSECURE_SKIP_VERIFY=true"
 
   const envVars = [
     `AGENT_DEVICE_ID=${externalId.trim()}`,
     `AGENT_ENROLLMENT_TOKEN=${agentToken}`,
     `AGENT_SERVER_ADDRESS=${agentServerAddress}`,
-    `AGENT_TLS_INSECURE_SKIP_VERIFY=true`,
+    tlsSetting,
   ].join("\n")
 
   // One-liner mirroring apps/agent/docker-compose.yaml — deploy the agent on a
@@ -111,7 +111,7 @@ export function AddDeviceDialog({ onDeviceCreated }: AddDeviceDialogProps) {
     `  -e AGENT_DEVICE_ID=${externalId.trim()}`,
     `  -e AGENT_ENROLLMENT_TOKEN=${agentToken}`,
     `  -e AGENT_SERVER_ADDRESS=${agentServerAddress}`,
-    "  -e AGENT_TLS_INSECURE_SKIP_VERIFY=true",
+    `  -e ${tlsSetting}`,
     "  -e HOST_PROC=/host/proc -e HOST_SYS=/host/sys -e HOST_ETC=/host/etc",
     "  -e AGENT_DISK_PATH=/host -e AGENT_WAL_PATH=/var/lib/orion-agent/wal.db",
     "  -v /var/run/docker.sock:/var/run/docker.sock:ro",
@@ -288,7 +288,9 @@ export function AddDeviceDialog({ onDeviceCreated }: AddDeviceDialogProps) {
                   </button>
                 </div>
                 <p className="text-[10px] text-muted-foreground/70">
-                  Drop <span className="font-mono">AGENT_TLS_INSECURE_SKIP_VERIFY</span> once the backend uses a trusted certificate.
+                  {agentConnection.tlsDisable
+                    ? "Local development connection. Use the backend machine's reachable address when deploying to another machine."
+                    : <>Drop <span className="font-mono">AGENT_TLS_INSECURE_SKIP_VERIFY</span> once the backend uses a trusted certificate.</>}
                 </p>
               </div>
 

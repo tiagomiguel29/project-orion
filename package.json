@@ -25,6 +25,7 @@
     "typecheck:backend": "npm run typecheck --workspace @project-orion/backend",
     "typecheck": "npm run typecheck:web && npm run typecheck:backend",
     "test": "npm run test --workspace @project-orion/backend",
+    "test:flow": "node scripts/verify-flow.mjs",
     "dev:web": "npm run dev --workspace @project-orion/web",
     "dev:backend": "npm run dev --workspace @project-orion/backend",
     "backend:docker": "docker compose -f apps/backend/docker-compose.yml up --build",

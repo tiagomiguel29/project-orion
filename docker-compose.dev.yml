@@ -75,6 +75,8 @@ services:
         # Inlined into the browser bundle at build time — must be the URL the
         # browser uses to reach the backend (the host-published HTTP port).
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:4000}
+        NEXT_PUBLIC_AGENT_SERVER_ADDRESS: ${NEXT_PUBLIC_AGENT_SERVER_ADDRESS:-localhost:${GRPC_PORT:-50052}}
+        NEXT_PUBLIC_AGENT_TLS_DISABLE: "true"
     restart: unless-stopped
     ports:
       - "${WEB_PORT:-3000}:3000"
