@@ -1,164 +1,89 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useState } from "react"
 import { useSocket } from "@/components/socket-provider"
-import { getRangeDurationMs } from "@/lib/device-mapper"
-import type {
-  DashboardRange,
-  DeviceCard,
-  DeviceStatus,
-} from "@/lib/dashboard-service"
+import { useAuth } from "@/components/auth-provider"
+import { fetchDevice, type DashboardRange, type DeviceCard, type DeviceStatus } from "@/lib/dashboard-service"
+import { applyTelemetry, compactSeries, type TelemetryEvent } from "@/lib/live-series"
 
-interface DeviceStatusEvent {
-  deviceId: string
-  status: DeviceStatus
-  lastSeenAt: string | null
-}
+type State = { key: string; device: DeviceCard }
 
-interface TelemetryMetric {
-  name: string
-  value: number
-}
-
-interface TelemetryEvent {
-  deviceId: string
-  metrics?: TelemetryMetric[]
-}
-
-// Raw agent metric name → sparkline key used by the detail charts.
-const SPARKLINE_KEY_BY_METRIC: Record<string, string> = {
-  "cpu.percent": "cpuPct",
-  "mem.percent": "ramPct",
-  "net.rx_bytes_per_sec": "netIn",
-  "net.tx_bytes_per_sec": "netOut",
-}
-const TEMP_METRIC = "sensor.temperature_celsius"
-
-// Safety cap so a long-lived "all" session can't grow points unbounded.
-const MAX_POINTS = 3000
-
-/**
- * Subscribes to a device's WS room and keeps its data live:
- *  - `dashboard.update` refreshes the scalar summary / status,
- *  - `device.status` refreshes online/offline,
- *  - `telemetry` (raw per-batch metrics) is appended to the time-series
- *    sparklines and trimmed to the selected range, so the charts advance in
- *    real time instead of freezing at the initial REST fetch.
- */
-export function useRealtimeDevice(
-  externalId: string,
-  initial: DeviceCard | undefined,
-  range: DashboardRange
-) {
+export function useRealtimeDevice(externalId: string, initial: DeviceCard | undefined, range: DashboardRange) {
   const { socket } = useSocket()
-  const [device, setDevice] = useState<DeviceCard | undefined>(initial)
-  const subscribedRef = useRef<string | null>(null)
-
-  // Keep the current window length in a ref so the telemetry handler always
-  // trims to the latest selected range without re-subscribing.
-  const windowMsRef = useRef(getRangeDurationMs(range))
-  useEffect(() => {
-    windowMsRef.current = getRangeDurationMs(range)
-  }, [range])
-
-  // Sync from REST initial load (also resets on range change → new fetch).
-  useEffect(() => {
-    if (initial) {
-      setDevice(initial)
-    }
-  }, [initial])
+  const { token } = useAuth()
+  const key = `${externalId}:${range}`
+  const [state, setState] = useState<State | undefined>()
 
   useEffect(() => {
-    if (!socket) return
-
-    if (subscribedRef.current !== externalId) {
-      socket.emit("subscribeDevice", { deviceId: externalId })
-      subscribedRef.current = externalId
-    }
-
-    function handleDashboardUpdate(updatedCard: DeviceCard) {
-      if (updatedCard.externalId !== externalId) return
-      // Live summary/status only; sparklines are advanced by `telemetry`.
-      setDevice((prev) =>
-        prev
-          ? {
-              ...prev,
-              status: updatedCard.status,
-              lastSeenAt: updatedCard.lastSeenAt,
-              summary: updatedCard.summary,
-              containers: updatedCard.containers,
-              tunnels: updatedCard.tunnels,
-            }
-          : updatedCard
-      )
-    }
-
-    function handleDeviceStatus(event: DeviceStatusEvent) {
-      if (event.deviceId !== externalId) return
-      setDevice((prev) =>
-        prev
-          ? {
-              ...prev,
-              status: event.status,
-              lastSeenAt: event.lastSeenAt ?? prev.lastSeenAt,
-            }
-          : prev
-      )
-    }
-
-    function handleTelemetry(event: TelemetryEvent) {
-      if (event.deviceId !== externalId) return
-      const metrics = event.metrics ?? []
-      if (metrics.length === 0) return
-
-      // Use client receive-time: the event's sent_at is a proto int64 (arrives
-      // as a Long object, not a number), and receive-time aligns the point with
-      // the chart's `now` edge (also client Date.now()). One ts per batch so
-      // netIn/netOut (merged by ts downstream) stay aligned.
-      const ts = Date.now()
-
-      const values: Record<string, number> = {}
-      let tempMax: number | undefined
-      for (const m of metrics) {
-        const key = SPARKLINE_KEY_BY_METRIC[m.name]
-        if (key) {
-          values[key] = Number(m.value)
-        } else if (m.name === TEMP_METRIC) {
-          const v = Number(m.value)
-          tempMax = tempMax === undefined ? v : Math.max(tempMax, v)
+    if (!initial) return
+    setState(previous => {
+      // Keep newer live buckets when an in-flight REST response arrives.
+      const device = { ...initial, sparklines: initial.sparklines.map(series => {
+        const live = previous?.key === key
+          ? previous.device.sparklines.find(s => s.name === series.name)?.points ?? [] : []
+        const merged = new Map(series.points.map(p => [p.tsUnixMs, p]))
+        for (const point of live) {
+          const fetched = merged.get(point.tsUnixMs)
+          if (!fetched || (point.lastTsUnixMs ?? point.tsUnixMs) > (fetched.lastTsUnixMs ?? fetched.tsUnixMs)) merged.set(point.tsUnixMs, point)
         }
+        return { ...series, points: compactSeries([...merged.values()], range, Date.now(), series.name === "cpuTempC") }
+      }) }
+      return { key, device }
+    })
+  }, [initial, key, range])
+
+  useEffect(() => {
+    if (!socket || !token) return
+    const connection = socket
+    let active = true
+    async function subscribe() {
+      try {
+        await connection.timeout(10000).emitWithAck("subscribeDevice", { deviceId: externalId })
+        // Redis Pub/Sub does not replay missed events: recover from persistence.
+        const recovered = await fetchDevice(token!, externalId, range)
+        if (active) setState({ key, device: recovered })
+      } catch {
+        // SWR handles initial-load errors; a subsequent reconnect retries recovery.
       }
-      if (tempMax !== undefined) values["cpuTempC"] = tempMax
-      if (Object.keys(values).length === 0) return
-
-      const windowMs = windowMsRef.current
-      const cutoff = windowMs > 0 ? ts - windowMs : 0
-
-      setDevice((prev) => {
-        if (!prev) return prev
-        const sparklines = prev.sparklines.map((s) => {
-          if (!(s.name in values)) return s
-          let points = [...s.points, { tsUnixMs: ts, value: values[s.name] }]
-          if (cutoff > 0) points = points.filter((p) => p.tsUnixMs >= cutoff)
-          if (points.length > MAX_POINTS) {
-            points = points.slice(points.length - MAX_POINTS)
-          }
-          return { ...s, points }
-        })
-        return { ...prev, sparklines }
+    }
+    function handleDashboardUpdate(card: DeviceCard) {
+      if (card.externalId !== externalId) return
+      setState(previous => {
+        if (previous?.key !== key) return previous
+        if (card.lastSeenAt && previous.device.lastSeenAt && card.lastSeenAt < previous.device.lastSeenAt) return previous
+        return { key, device: { ...previous.device, ...card, sparklines: previous.device.sparklines } }
       })
     }
-
-    socket.on("dashboard.update", handleDashboardUpdate)
-    socket.on("device.status", handleDeviceStatus)
-    socket.on("telemetry", handleTelemetry)
-
-    return () => {
-      socket.off("dashboard.update", handleDashboardUpdate)
-      socket.off("device.status", handleDeviceStatus)
-      socket.off("telemetry", handleTelemetry)
+    function handleStatus(event: { deviceId: string; status: DeviceStatus; lastSeenAt: string | null }) {
+      if (event.deviceId !== externalId) return
+      setState(previous => {
+        if (previous?.key !== key) return previous
+        if (event.lastSeenAt && previous.device.lastSeenAt && event.lastSeenAt < previous.device.lastSeenAt) return previous
+        return { key, device: { ...previous.device,
+          status: event.status, lastSeenAt: event.lastSeenAt ?? previous.device.lastSeenAt } }
+      })
     }
-  }, [socket, externalId])
+    function handleTelemetry(event: TelemetryEvent) {
+      if (event.deviceId !== externalId) return
+      setState(previous => previous?.key === key ? { key,
+        device: applyTelemetry(previous.device, event, range, Date.now()) } : previous)
+    }
+    socket.on("connect", subscribe)
+    socket.on("stream.recovered", subscribe)
+    socket.on("dashboard.update", handleDashboardUpdate)
+    socket.on("device.status", handleStatus)
+    socket.on("telemetry", handleTelemetry)
+    if (socket.connected) void subscribe()
+    return () => {
+      active = false
+      socket.off("connect", subscribe)
+      socket.off("stream.recovered", subscribe)
+      socket.off("dashboard.update", handleDashboardUpdate)
+      socket.off("device.status", handleStatus)
+      socket.off("telemetry", handleTelemetry)
+      socket.emit("unsubscribeDevice", { deviceId: externalId })
+    }
+  }, [socket, token, externalId, key, range])
 
-  return device
+  return state?.key === key ? state.device : initial
 }

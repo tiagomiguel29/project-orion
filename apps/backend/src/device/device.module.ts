@@ -5,6 +5,7 @@ import { MetricsService } from './metrics/metrics.service';
 import { MetricsQueueService } from './metrics-queue/metrics-queue.service';
 import { DeviceEntity } from './entities/device.entity';
 import { MetricEntity } from './entities/metric.entity';
+import { IngestBatchEntity } from './entities/ingest-batch.entity';
 import { EventEntity } from './entities/event.entity';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { RealtimeModule } from 'src/realtime/realtime.module';
@@ -16,7 +17,7 @@ import { DashboardService } from './dashboard/dashboard.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([DeviceEntity, MetricEntity, EventEntity]),
+    TypeOrmModule.forFeature([DeviceEntity, MetricEntity, EventEntity, IngestBatchEntity]),
     RealtimeModule,
     ScheduleModule.forRoot(),
     AuthModule,

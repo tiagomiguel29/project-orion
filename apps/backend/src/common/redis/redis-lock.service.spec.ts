@@ -10,6 +10,10 @@ function makeRedis() {
         return 'OK';
       },
     ),
+    eval: jest.fn(async (_lua: string, _n: number, k: string, token: string) => {
+      if (store.get(k) !== token) return 0;
+      return store.delete(k) ? 1 : 0;
+    }),
     get: jest.fn(async (k: string) => store.get(k) ?? null),
     del: jest.fn(async (k: string) => (store.delete(k) ? 1 : 0)),
   };

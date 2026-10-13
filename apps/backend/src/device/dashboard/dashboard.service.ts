@@ -36,6 +36,7 @@ type BucketedSparklineRow = {
   value: string | number;
   firstTsUnixMs: string | number;
   lastTsUnixMs: string | number;
+  sampleCount: string | number;
 };
 
 const DASHBOARD_METRICS = {
@@ -334,7 +335,8 @@ export class DashboardService {
       }
     }
 
-    return NICE_BUCKETS_MS[NICE_BUCKETS_MS.length - 1];
+    const largest = NICE_BUCKETS_MS[NICE_BUCKETS_MS.length - 1];
+    return Math.ceil(rawBucketMs / largest) * largest;
   }
 
   private async getMetricsSpanMs(deviceIds: string[]): Promise<number | null> {
@@ -510,6 +512,7 @@ export class DashboardService {
           `${aggregateExpr} AS "value"`,
           'MIN(extract(epoch from m.time) * 1000) AS "firstTsUnixMs"',
           'MAX(extract(epoch from m.time) * 1000) AS "lastTsUnixMs"',
+          'COUNT(*) AS "sampleCount"',
         ])
         .where('m.deviceId IN (:...deviceIds)', { deviceIds })
         .andWhere('m.name = :name', { name: metricName })
@@ -553,7 +556,7 @@ export class DashboardService {
             if (rawGapMs > offlineGapThresholdMs) {
               points.push({
                 tsUnixMs: Math.floor(
-                  previousLastTsUnixMs + rawGapMs / 2,
+                  (Number(previousRow.tsUnixMs) + Number(row.tsUnixMs)) / 2,
                 ),
                 value: null,
               });
@@ -563,6 +566,9 @@ export class DashboardService {
           points.push({
             tsUnixMs: Number(row.tsUnixMs),
             value: Number(row.value),
+            sampleCount: Number(row.sampleCount),
+            firstTsUnixMs: Number(row.firstTsUnixMs),
+            lastTsUnixMs: Number(row.lastTsUnixMs),
           });
           previousRow = row;
         }

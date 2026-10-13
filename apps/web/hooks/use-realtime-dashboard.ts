@@ -1,6 +1,8 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
+import { fetchDashboard } from "@/lib/dashboard-service"
+import { useAuth } from "@/components/auth-provider"
 import { useSocket } from "@/components/socket-provider"
 import type {
   DashboardPayload,
@@ -42,6 +44,7 @@ function recomputeTotals(devices: DeviceCard[]): DashboardTotals {
  */
 export function useRealtimeDashboard(initial: DashboardPayload | undefined) {
   const { socket } = useSocket()
+  const { token } = useAuth()
   const [devices, setDevices] = useState<DeviceCard[]>([])
   const [totals, setTotals] = useState<DashboardTotals | null>(null)
 
@@ -60,13 +63,24 @@ export function useRealtimeDashboard(initial: DashboardPayload | undefined) {
 
   // WebSocket listeners
   useEffect(() => {
-    if (!socket) return
+    if (!socket || !token) return
+    let active = true
+    async function recover() {
+      try {
+        const payload = await fetchDashboard(token!)
+        if (active) { setDevices(payload.devices); setTotals(payload.totals) }
+      } catch { /* initial-load failures are handled by SWR */ }
+    }
+    socket.on("connect", recover)
+    socket.on("stream.recovered", recover)
+
 
     function handleDashboardUpdate(updatedCard: DeviceCard) {
       setDevices((prev) => {
         const idx = prev.findIndex((d) => d.externalId === updatedCard.externalId)
         let next: DeviceCard[]
         if (idx >= 0) {
+          if (updatedCard.lastSeenAt && prev[idx].lastSeenAt && updatedCard.lastSeenAt < prev[idx].lastSeenAt!) return prev
           next = [...prev]
           next[idx] = updatedCard
         } else {
@@ -82,6 +96,7 @@ export function useRealtimeDashboard(initial: DashboardPayload | undefined) {
       setDevices((prev) => {
         const idx = prev.findIndex((d) => d.externalId === event.deviceId)
         if (idx < 0) return prev
+        if (event.lastSeenAt && prev[idx].lastSeenAt && event.lastSeenAt < prev[idx].lastSeenAt!) return prev
         const next = [...prev]
         next[idx] = {
           ...next[idx],
@@ -97,10 +112,13 @@ export function useRealtimeDashboard(initial: DashboardPayload | undefined) {
     socket.on("device.status", handleDeviceStatus)
 
     return () => {
+      active = false
+      socket.off("connect", recover)
+      socket.off("stream.recovered", recover)
       socket.off("dashboard.update", handleDashboardUpdate)
       socket.off("device.status", handleDeviceStatus)
     }
-  }, [socket])
+  }, [socket, token])
 
   return { devices, totals }
 }

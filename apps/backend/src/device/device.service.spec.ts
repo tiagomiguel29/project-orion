@@ -4,6 +4,7 @@ describe('DeviceService', () => {
   function make() {
     const devicesRepo = {
       findOne: jest.fn(),
+      query: jest.fn(),
       update: jest.fn().mockResolvedValue(undefined),
       save: jest.fn().mockImplementation(async (d) => d),
       create: jest.fn().mockImplementation((d) => d),
@@ -26,33 +27,31 @@ describe('DeviceService', () => {
 
   it('markSeen fast-path only updates lastSeenAt when already online', async () => {
     const { service, devicesRepo, realtime } = make();
-    devicesRepo.findOne.mockResolvedValue({
+    devicesRepo.query.mockResolvedValue([{
       id: 'uuid-1',
       externalId: 'dev-1',
-      status: 'online',
-    });
+      previousStatus: 'online',
+    }]);
 
     await service.markSeen('dev-1');
 
-    expect(devicesRepo.update).toHaveBeenCalledWith(
-      'uuid-1',
-      expect.objectContaining({ lastSeenAt: expect.any(Date) }),
-    );
+    expect(devicesRepo.query).toHaveBeenCalledWith(expect.stringContaining('GREATEST'), ['dev-1', expect.any(Date)]);
     // no status transition → no WS emit
     expect(realtime.emitToDevice).not.toHaveBeenCalled();
   });
 
   it('markSeen emits a status change when a device comes online', async () => {
     const { service, devicesRepo, realtime } = make();
-    devicesRepo.findOne.mockResolvedValue({
+    devicesRepo.query.mockResolvedValue([{
       id: 'uuid-1',
       externalId: 'dev-1',
-      status: 'offline',
-    });
+      previousStatus: 'offline',
+      lastSeenAt: new Date(),
+    }]);
 
     await service.markSeen('dev-1');
 
-    expect(devicesRepo.save).toHaveBeenCalled();
+    expect(devicesRepo.query).toHaveBeenCalled();
     expect(realtime.emitToDevice).toHaveBeenCalledWith(
       'dev-1',
       'device.status',

@@ -159,7 +159,9 @@ export function getRangeDomain(
 
   if (range === "all") {
     if (data?.length) {
-      return [data[0].ts, data[data.length - 1].ts]
+      const start = data[0].ts
+      const end = data[data.length - 1].ts
+      return start === end ? [start - 5000, end + 5000] : [start, end]
     }
     return [now - 30 * 24 * 60 * 60_000, now]
   }
@@ -177,8 +179,10 @@ export function generateTicks(
   data?: { ts: number }[],
   nowMs: number = Date.now()
 ): number[] {
-  const interval = TICK_INTERVALS[range]
   const [start, end] = getRangeDomain(range, data, nowMs)
+  const interval = range === "all"
+    ? Math.max(1000, Math.ceil((end - start) / 8))
+    : TICK_INTERVALS[range]
 
   const ticks: number[] = []
   for (let t = start; t <= end; t += interval) {
@@ -219,6 +223,11 @@ export interface TimeSeriesPoint {
   ts: number        // unix ms
   time: string      // formatted label
   value: number | null
+}
+
+export function shouldShowDots(points: { value: number | null }[]): boolean {
+  return points.filter(point => point.value !== null).length === 1 ||
+    points.some(point => point.value === null)
 }
 
 export interface DeviceChartData {
@@ -364,10 +373,10 @@ function padRangeEdges(
       ? [...intervals].sort((a, b) => a - b)[Math.floor(intervals.length / 2)]
       : 0
 
-  const gapAllowance = Math.max(
+  const gapAllowance = Math.min(20_000, Math.max(
     LIVE_EDGE_PAD_FALLBACK_MS[range],
     Math.round(medianInterval * 2.5)
-  )
+  ))
 
   const [start, end] = getRangeDomain(range, realPoints, nowMs)
   const result = [...points]
@@ -438,22 +447,20 @@ export function mapDeviceToChartData(
   const netOutReal = netOut.filter((p) => p.value !== null)
   const netInMap = new Map(netInReal.map((p) => [p.ts, p.value]))
   const netOutMap = new Map(netOutReal.map((p) => [p.ts, p.value]))
-  // Collect gap-marker timestamps
-  const gapTs = new Set([
-    ...netIn.filter((p) => p.value === null).map((p) => p.ts),
-    ...netOut.filter((p) => p.value === null).map((p) => p.ts),
-  ])
   const allTs = [...new Set([
     ...netIn.map((p) => p.ts),
     ...netOut.map((p) => p.ts),
-  ])].sort()
+  ])].sort((a, b) => a - b)
 
   const network = allTs.map((ts) => ({
     ts,
     time: formatTimestamp(ts),
-    download: gapTs.has(ts) ? null : (netInMap.get(ts) ?? 0),
-    upload: gapTs.has(ts) ? null : (netOutMap.get(ts) ?? 0),
-  }))
+    download: netInMap.get(ts) ?? null,
+    upload: netOutMap.get(ts) ?? null,
+  })).filter((point, index, points) =>
+    index === 0 || point.download !== null || point.upload !== null ||
+    points[index - 1].download !== null || points[index - 1].upload !== null
+  )
 
   return { cpu, ram, cpuTemp, netIn, netOut, network }
 }

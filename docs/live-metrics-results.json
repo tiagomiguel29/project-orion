@@ -1,0 +1,193 @@
+{
+  "verified_date": "2026-10-13",
+  "backend_tests": 44,
+  "chart_and_setup_tests": 20,
+  "typechecks": "passed",
+  "real_go_agent": "enrollment, repeated 3-second access-token refresh, history reload and offline transition passed",
+  "scale": {
+    "replicas": 3,
+    "faults": true,
+    "device": "scale-1791927723461",
+    "counts": {
+      "1m": {
+        "cpuPct": 13,
+        "ramPct": 13,
+        "diskPct": 13,
+        "netIn": 13,
+        "netOut": 13,
+        "cpuTempC": 13
+      },
+      "5m": {
+        "cpuPct": 21,
+        "ramPct": 21,
+        "diskPct": 21,
+        "netIn": 21,
+        "netOut": 21,
+        "cpuTempC": 21
+      },
+      "1h": {
+        "cpuPct": 61,
+        "ramPct": 61,
+        "diskPct": 61,
+        "netIn": 61,
+        "netOut": 61,
+        "cpuTempC": 61
+      },
+      "2h": {
+        "cpuPct": 61,
+        "ramPct": 61,
+        "diskPct": 61,
+        "netIn": 61,
+        "netOut": 61,
+        "cpuTempC": 61
+      },
+      "5h": {
+        "cpuPct": 61,
+        "ramPct": 61,
+        "diskPct": 61,
+        "netIn": 61,
+        "netOut": 61,
+        "cpuTempC": 61
+      },
+      "12h": {
+        "cpuPct": 73,
+        "ramPct": 73,
+        "diskPct": 73,
+        "netIn": 73,
+        "netOut": 73,
+        "cpuTempC": 73
+      },
+      "1d": {
+        "cpuPct": 97,
+        "ramPct": 97,
+        "diskPct": 97,
+        "netIn": 97,
+        "netOut": 97,
+        "cpuTempC": 97
+      },
+      "1w": {
+        "cpuPct": 85,
+        "ramPct": 85,
+        "diskPct": 85,
+        "netIn": 85,
+        "netOut": 85,
+        "cpuTempC": 85
+      },
+      "1mo": {
+        "cpuPct": 121,
+        "ramPct": 121,
+        "diskPct": 121,
+        "netIn": 121,
+        "netOut": 121,
+        "cpuTempC": 121
+      },
+      "1y": {
+        "cpuPct": 92,
+        "ramPct": 92,
+        "diskPct": 92,
+        "netIn": 92,
+        "netOut": 92,
+        "cpuTempC": 92
+      },
+      "all": {
+        "cpuPct": 82,
+        "ramPct": 82,
+        "diskPct": 82,
+        "netIn": 82,
+        "netOut": 82,
+        "cpuTempC": 82
+      }
+    }
+  },
+  "browser_ranges": [
+    {
+      "range": "1m",
+      "cpu": 13,
+      "ram": 13,
+      "network": 13,
+      "temperature": 13,
+      "invalidPaths": 0
+    },
+    {
+      "range": "5m",
+      "cpu": 22,
+      "ram": 22,
+      "network": 22,
+      "temperature": 22,
+      "invalidPaths": 0
+    },
+    {
+      "range": "1h",
+      "cpu": 38,
+      "ram": 38,
+      "network": 38,
+      "temperature": 38,
+      "invalidPaths": 0
+    },
+    {
+      "range": "2h",
+      "cpu": 19,
+      "ram": 19,
+      "network": 19,
+      "temperature": 19,
+      "invalidPaths": 0
+    },
+    {
+      "range": "5h",
+      "cpu": 8,
+      "ram": 8,
+      "network": 8,
+      "temperature": 8,
+      "invalidPaths": 0
+    },
+    {
+      "range": "12h",
+      "cpu": 4,
+      "ram": 4,
+      "network": 4,
+      "temperature": 4,
+      "invalidPaths": 0
+    },
+    {
+      "range": "1d",
+      "cpu": 4,
+      "ram": 4,
+      "network": 4,
+      "temperature": 4,
+      "invalidPaths": 0
+    },
+    {
+      "range": "1w",
+      "cpu": 1,
+      "ram": 1,
+      "network": 1,
+      "temperature": 1,
+      "invalidPaths": 0
+    },
+    {
+      "range": "1mo",
+      "cpu": 1,
+      "ram": 1,
+      "network": 1,
+      "temperature": 1,
+      "invalidPaths": 0
+    },
+    {
+      "range": "1y",
+      "cpu": 1,
+      "ram": 1,
+      "network": 1,
+      "temperature": 1,
+      "invalidPaths": 0
+    },
+    {
+      "range": "all",
+      "cpu": 74,
+      "ram": 74,
+      "network": 74,
+      "temperature": 74,
+      "invalidPaths": 0
+    }
+  ],
+  "browser_reconnect": "local backend restart recovered the device stream without reloading the page"
+}

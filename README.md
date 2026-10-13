@@ -120,3 +120,9 @@ npm run backend:docker
 npm run agent:docker
 ```
 
+
+## Live metrics and horizontal scaling
+
+See [the verification report](docs/live-metrics.md) for the complete ingestion,
+persistence, Redis, WebSocket and chart flow; per-range point budgets; repeatable
+three-replica/failure tests; and retention/capacity limits.

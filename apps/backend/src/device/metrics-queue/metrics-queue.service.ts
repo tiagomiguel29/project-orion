@@ -3,8 +3,9 @@ import { IngestMetricPoint, MetricsService } from '../metrics/metrics.service';
 
 type QueueItem = {
   deviceId: string;
+  batchId: string;
   points: IngestMetricPoint[];
-  resolve: () => void;
+  resolve: (accepted: boolean) => void;
   reject: (err: unknown) => void;
 };
 
@@ -30,6 +31,8 @@ export class MetricsQueueService implements OnModuleInit, OnModuleDestroy {
   private readonly insertChunkSize = 1000; // rows per INSERT
 
   private flushing = false;
+  private queuedPoints = 0;
+  private readonly maxQueuedPoints = 100_000;
 
   constructor(private readonly metrics: MetricsService) {}
 
@@ -53,18 +56,19 @@ export class MetricsQueueService implements OnModuleInit, OnModuleDestroy {
    * @returns a Promise that resolves when committed, rejects on failure or when
    * the queue is full (caller should map a rejection to a RETRY ack).
    */
-  enqueue(deviceId: string, points: IngestMetricPoint[]): Promise<void> {
-    if (!points?.length) return Promise.resolve();
+  enqueue(deviceId: string, points: IngestMetricPoint[], batchId = ''): Promise<boolean> {
+    if (!points?.length && !batchId) return Promise.resolve(true);
 
-    if (this.queue.length >= this.maxQueueItems) {
+    if (this.queue.length >= this.maxQueueItems || this.queuedPoints + points.length > this.maxQueuedPoints) {
       // Signal backpressure instead of silently dropping — the agent keeps the
       // batch in its WAL and retries.
       this.logger.warn(`queue full (queueLen=${this.queue.length}) — asking agent to retry`);
       return Promise.reject(new Error('ingest queue full'));
     }
 
-    return new Promise<void>((resolve, reject) => {
-      this.queue.push({ deviceId, points, resolve, reject });
+    return new Promise<boolean>((resolve, reject) => {
+      this.queue.push({ deviceId, batchId, points, resolve, reject });
+      this.queuedPoints += points.length;
       // Kick a flush promptly so ack latency stays low.
       if (!this.flushing) void this.flush();
     });
@@ -78,6 +82,7 @@ export class MetricsQueueService implements OnModuleInit, OnModuleDestroy {
     try {
       // take up to N items
       const batch = this.queue.splice(0, this.flushBatchItems);
+      this.queuedPoints -= batch.reduce((sum, item) => sum + item.points.length, 0);
 
       // group by deviceId to reduce overhead and improve insert locality
       const grouped = new Map<string, QueueItem[]>();
@@ -89,10 +94,9 @@ export class MetricsQueueService implements OnModuleInit, OnModuleDestroy {
 
       // Insert per device group; resolve/reject each item by its group's result.
       for (const [deviceId, items] of grouped.entries()) {
-        const points = items.flatMap((i) => i.points);
         try {
-          await this.metrics.insertMany(deviceId, points, this.insertChunkSize);
-          for (const item of items) item.resolve();
+          const accepted = await this.metrics.insertBatches(deviceId, items, this.insertChunkSize);
+          items.forEach((item, index) => item.resolve(accepted[index]));
         } catch (err: any) {
           this.logger.error(
             `flush failed for device=${deviceId}: ${err?.message ?? err}`,

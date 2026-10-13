@@ -9,6 +9,9 @@ export type DeviceStatus = "online" | "offline" | "unknown"
 export interface MetricPoint {
   tsUnixMs: number
   value: number | null
+  sampleCount?: number
+  firstTsUnixMs?: number
+  lastTsUnixMs?: number
 }
 
 export interface SparklineData {

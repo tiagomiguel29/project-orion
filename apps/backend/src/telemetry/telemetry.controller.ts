@@ -1,4 +1,4 @@
-import { Controller, Logger, UseGuards } from '@nestjs/common';
+import { Controller, Logger, OnModuleDestroy, UseGuards } from '@nestjs/common';
 import { GrpcMethod, RpcException } from '@nestjs/microservices';
 import { status } from '@grpc/grpc-js';
 import { GrpcAgentJwtGuard } from '../agent/grpc-agent-auth.guard';
@@ -8,7 +8,7 @@ import { MetricsQueueService } from 'src/device/metrics-queue/metrics-queue.serv
 import { IngestMetricPoint } from 'src/device/metrics/metrics.service';
 import { DeviceService } from 'src/device/device.service';
 import { DashboardService } from 'src/device/dashboard/dashboard.service';
-import { IdempotencyService } from './idempotency.service';
+import { DashboardBroadcastService } from './dashboard-broadcast.service';
 import { IngestAck, IngestStatus, ingestAck } from './ingest-status';
 
 type MetricPoint = {
@@ -35,7 +35,7 @@ type TelemetryBatch = {
 };
 
 @Controller()
-export class TelemetryController {
+export class TelemetryController implements OnModuleDestroy {
   private readonly logger = new Logger(TelemetryController.name);
 
   constructor(
@@ -43,7 +43,7 @@ export class TelemetryController {
     private readonly metricsQueue: MetricsQueueService,
     private readonly deviceService: DeviceService,
     private readonly dashboardService: DashboardService,
-    private readonly idempotency: IdempotencyService,
+    private readonly broadcasts: DashboardBroadcastService,
     private readonly agentService: AgentService,
   ) {}
 
@@ -87,16 +87,7 @@ export class TelemetryController {
 
     const batchId = (batch.batchId as string | undefined) ?? '';
 
-    // Idempotency: claim the batch first. If it was already seen, this is a
-    // retry of a batch that already committed — ack DUPLICATE so the agent
-    // drops it from its WAL without re-emitting or re-persisting.
-    const claimed = await this.idempotency.claim(batchId);
-    if (!claimed) {
-      return ingestAck(IngestStatus.DUPLICATE, 'duplicate batch');
-    }
-
     try {
-      this.deviceService.markSeen(deviceId);
 
       const points: IngestMetricPoint[] = (batch.metrics ?? []).map(
         (m: MetricPoint) => ({
@@ -107,17 +98,9 @@ export class TelemetryController {
         }),
       );
 
-      // HOT PATH: realtime immediately (before persistence — latency unchanged).
-      this.realtime.emitToDevice(deviceId, 'telemetry', {
-        deviceId,
-        sentAtUnixMs: batch.sentAtUnixMs,
-        intervalSec: batch.intervalSec,
-        metrics: batch.metrics ?? [],
-      });
-
       // Cold update of device info (not part of the durability contract).
       const systemInfo = batch.systemInfo ?? {};
-      this.deviceService.updateDeviceInfo(deviceId, {
+      await this.deviceService.updateDeviceInfo(deviceId, {
         hostname: systemInfo.hostname ?? '',
         os: systemInfo.os ?? '',
         kernel: systemInfo.kernel ?? '',
@@ -128,7 +111,23 @@ export class TelemetryController {
       });
 
       // DURABLE PATH: wait for the DB commit before acking.
-      await this.metricsQueue.enqueue(deviceId, points);
+      const accepted = await this.metricsQueue.enqueue(deviceId, points, batchId);
+      if (!accepted) {
+        await this.deviceService.markSeen(deviceId);
+        this.scheduleDashboardUpdate(deviceId);
+        return ingestAck(IngestStatus.DUPLICATE, 'duplicate committed batch');
+      }
+      await this.deviceService.markSeen(deviceId);
+
+      // Publish committed telemetry only: retries must not duplicate chart points.
+      this.realtime.emitToDevice(deviceId, 'telemetry', {
+        deviceId,
+        batchId,
+        sentAtUnixMs: batch.sentAtUnixMs,
+        intervalSec: batch.intervalSec,
+        metrics: batch.metrics ?? [],
+      });
+
 
       // Fire-and-forget: push the recomputed dashboard card to subscribers,
       // throttled per device so ingest rate doesn't drive DB + pub/sub load.
@@ -136,9 +135,8 @@ export class TelemetryController {
 
       return ingestAck(IngestStatus.ACCEPTED, 'accepted');
     } catch (err: any) {
-      // Persistence (or backpressure) failed — release the claim so the
-      // agent's retry with the same batch_id can re-acquire and try again.
-      await this.idempotency.release(batchId);
+      // Transaction failure rolls back metrics and the receipt together.
+
       this.logger.warn(
         `ingest RETRY device=${deviceId} batch=${batchId}: ${err?.message ?? err}`,
       );
@@ -146,55 +144,28 @@ export class TelemetryController {
     }
   }
 
-  // Per-device throttle state for dashboard.update emits.
-  private readonly dashboardThrottleMs = Number(
-    process.env.DASHBOARD_EMIT_THROTTLE_MS ?? 2000,
-  );
-  private readonly dashboardThrottle = new Map<
-    string,
-    { lastMs: number; timer?: NodeJS.Timeout }
-  >();
+  private readonly dashboardThrottleMs = Number(process.env.DASHBOARD_EMIT_THROTTLE_MS ?? 2000);
+  private readonly dashboardTimers = new Map<string, NodeJS.Timeout>();
 
-  /**
-   * Coalesce dashboard.update emits per device to at most one per throttle
-   * window (leading + trailing), so a device ingesting every few seconds — or
-   * a burst drained after an outage — doesn't trigger a recompute-and-broadcast
-   * per batch. Bounds DB query and Redis pub/sub load independent of ingest rate.
-   */
   private scheduleDashboardUpdate(deviceId: string) {
-    const now = Date.now();
-    const entry = this.dashboardThrottle.get(deviceId);
-
-    if (!entry) {
-      this.dashboardThrottle.set(deviceId, { lastMs: now });
+    if (this.dashboardTimers.has(deviceId)) return;
+    void this.emitDashboardUpdate(deviceId);
+    const timer = setTimeout(() => {
+      this.dashboardTimers.delete(deviceId);
       void this.emitDashboardUpdate(deviceId);
-      return;
-    }
+    }, Math.max(1, this.dashboardThrottleMs));
+    timer.unref?.();
+    this.dashboardTimers.set(deviceId, timer);
+  }
 
-    const elapsed = now - entry.lastMs;
-    if (elapsed >= this.dashboardThrottleMs) {
-      entry.lastMs = now;
-      if (entry.timer) {
-        clearTimeout(entry.timer);
-        entry.timer = undefined;
-      }
-      void this.emitDashboardUpdate(deviceId);
-      return;
-    }
-
-    // Inside the window — schedule a single trailing emit for the latest state.
-    if (!entry.timer) {
-      entry.timer = setTimeout(() => {
-        entry.lastMs = Date.now();
-        entry.timer = undefined;
-        void this.emitDashboardUpdate(deviceId);
-      }, this.dashboardThrottleMs - elapsed);
-      entry.timer.unref?.();
-    }
+  onModuleDestroy() {
+    for (const timer of this.dashboardTimers.values()) clearTimeout(timer);
+    this.dashboardTimers.clear();
   }
 
   private async emitDashboardUpdate(deviceId: string) {
     try {
+      if (!await this.broadcasts.allowDashboardEmit(deviceId, this.dashboardThrottleMs)) return;
       const card = await this.dashboardService.getDeviceDashboardPayload(deviceId, '15m');
       this.realtime.emitToDashboard('dashboard.update', card);
     } catch {

@@ -83,10 +83,14 @@ try {
   assert(card.summary.ramTotalBytes > 0);
   assert(card.sparklines.some(s => s.points.length > 0));
   console.log('PASS real Go agent enrollment, telemetry and dashboard broadcast');
-  const nextCard = await event(socket, 'dashboard.update', data =>
-    data.externalId === deviceId && data.lastSeenAt > card.lastSeenAt);
-  assert(nextCard.sparklines.some(s => s.points.length > 0));
-  console.log('PASS subsequent telemetry updates the live dashboard');
+  let latestCard = card;
+  for (let i = 1; i < Number(process.env.FLOW_LIVE_BATCHES ?? 2); i++) {
+    const nextCard = await event(socket, 'dashboard.update', data =>
+      data.externalId === deviceId && data.lastSeenAt > latestCard.lastSeenAt);
+    assert(nextCard.sparklines.some(s => s.points.length > 0));
+    latestCard = nextCard;
+  }
+  console.log('PASS successive live dashboard updates');
   const persisted = await request(`/devices/dashboard/${deviceId}?range=1m`);
   assert.equal(persisted.status, 'online');
   assert(persisted.sparklines.some(s => s.points.length > 0));

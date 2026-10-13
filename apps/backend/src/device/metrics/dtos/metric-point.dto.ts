@@ -6,4 +6,13 @@ export class MetricPointDto {
 
   @Expose()
   value: number | null;
+
+  @Expose()
+  sampleCount?: number;
+
+  @Expose()
+  firstTsUnixMs?: number;
+
+  @Expose()
+  lastTsUnixMs?: number;
 }

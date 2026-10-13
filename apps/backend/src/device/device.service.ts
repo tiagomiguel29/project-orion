@@ -1,6 +1,6 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { LessThan, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import { DeviceEntity, DeviceStatus } from './entities/device.entity';
 import { MetricEntity } from './entities/metric.entity';
 import { EventEntity } from './entities/event.entity';
@@ -62,26 +62,21 @@ export class DeviceService {
    * - emits WS status change event if status changed
    */
   async markSeen(externalId: string, seenAt = new Date()): Promise<void> {
-    const device = await this.devicesRepo.findOne({ where: { externalId } });
-    if (!device) return; // or create automatically if you want
-
-    const wasStatus = device.status;
-    const nextStatus: DeviceStatus = 'online';
-
-    device.lastSeenAt = seenAt;
-
-    if (wasStatus !== nextStatus) {
-      device.status = nextStatus;
-      device.statusChangedAt = seenAt;
-
-      await this.devicesRepo.save(device);
-
-      this.emitStatus(device.externalId, device.status, device.lastSeenAt);
-      return;
+    const rows = await this.devicesRepo.query(`
+      WITH previous AS MATERIALIZED (
+        SELECT id, status FROM devices WHERE "externalId" = $1 FOR UPDATE
+      ), updated AS (
+        UPDATE devices d SET
+          "lastSeenAt" = GREATEST(d."lastSeenAt", $2::timestamptz),
+          status = 'online',
+          "statusChangedAt" = CASE WHEN p.status <> 'online' THEN $2::timestamptz ELSE d."statusChangedAt" END
+        FROM previous p WHERE d.id = p.id
+        RETURNING d."externalId", d."lastSeenAt", p.status AS "previousStatus"
+      ) SELECT * FROM updated
+    `, [externalId, seenAt]);
+    for (const row of rows) {
+      if (row.previousStatus !== 'online') this.emitStatus(row.externalId, 'online', row.lastSeenAt);
     }
-
-    // status unchanged, only update lastSeenAt (fast path)
-    await this.devicesRepo.update(device.id, { lastSeenAt: seenAt });
   }
 
   /**
@@ -89,35 +84,17 @@ export class DeviceService {
    * Emits WS events only for transitions.
    */
   async markStaleDevicesOffline(offlineBefore: Date): Promise<number> {
-    // Find devices currently online but stale
-    const staleOnline = await this.devicesRepo.find({
-      where: {
-        status: 'online',
-        lastSeenAt: LessThan(offlineBefore),
-      },
-      select: ['id', 'externalId', 'lastSeenAt', 'status'],
-      take: 5000, // safety cap per tick
-    });
-
-    if (staleOnline.length === 0) return 0;
-
-    const now = new Date();
-
-    // Update in DB (bulk)
-    const ids = staleOnline.map((d) => d.id);
-    await this.devicesRepo
-      .createQueryBuilder()
+    // Check the cutoff in the UPDATE itself: an agent can reconnect while the
+    // scheduler is running on another replica. Only actual transitions emit.
+    const result = await this.devicesRepo.createQueryBuilder()
       .update(DeviceEntity)
-      .set({ status: 'offline', statusChangedAt: now })
-      .whereInIds(ids)
+      .set({ status: 'offline', statusChangedAt: new Date() })
+      .where('status = :status', { status: 'online' })
+      .andWhere('"lastSeenAt" < :offlineBefore', { offlineBefore })
+      .returning(['externalId', 'lastSeenAt'])
       .execute();
-
-    // Emit WS events per device
-    for (const d of staleOnline) {
-      this.emitStatus(d.externalId, 'offline', d.lastSeenAt);
-    }
-
-    return staleOnline.length;
+    for (const row of result.raw) this.emitStatus(row.externalId, 'offline', row.lastSeenAt);
+    return result.raw.length;
   }
 
   /**

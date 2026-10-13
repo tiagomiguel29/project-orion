@@ -6,7 +6,7 @@ import {
   WebSocketServer,
 } from '@nestjs/websockets';
 
-import { Inject, UseGuards } from '@nestjs/common';
+import { Inject, OnModuleDestroy, UseGuards } from '@nestjs/common';
 import { Server } from 'socket.io';
 import { createAdapter } from '@socket.io/redis-adapter';
 import { Redis } from 'ioredis';
@@ -20,8 +20,12 @@ const wsOrigin = process.env.CORS_ORIGIN
 
 @WebSocketGateway({
   cors: { origin: wsOrigin, credentials: false },
+  pingInterval: 10000,
+  pingTimeout: 5000,
 })
-export class RealtimeGateway {
+export class RealtimeGateway implements OnModuleDestroy {
+  private pubClient?: Redis;
+  private subClient?: Redis;
   @WebSocketServer()
   server!: Server;
 
@@ -32,9 +36,12 @@ export class RealtimeGateway {
 
   afterInit() {
     if (this.redisUrl) {
-      const pubClient = new Redis(this.redisUrl);
+      const pubClient = new Redis(this.redisUrl, { maxRetriesPerRequest: null });
       const subClient = pubClient.duplicate();
+      this.pubClient = pubClient;
+      this.subClient = subClient;
       this.server.adapter(createAdapter(pubClient, subClient));
+      subClient.on('ready', () => this.server.local.emit('stream.recovered'));
       console.log('Socket.IO Redis adapter enabled');
     }
     this.realtime.setServer(this.server);
@@ -43,7 +50,7 @@ export class RealtimeGateway {
   @UseGuards(WsJwtGuard)
   @SubscribeMessage('subscribeDashboard')
   async subscribeDashboard(@ConnectedSocket() socket: any) {
-    socket.join('dashboard');
+    await socket.join('dashboard');
     return { ok: true, message: 'subscribed to dashboard' };
   }
 
@@ -56,7 +63,23 @@ export class RealtimeGateway {
     const deviceId = body?.deviceId;
     if (!deviceId) return { ok: false, message: 'deviceId required' };
 
-    socket.join(this.realtime.deviceRoom(deviceId));
+    await socket.join(this.realtime.deviceRoom(deviceId));
     return { ok: true, message: `subscribed to ${deviceId}` };
+  }
+
+  @UseGuards(WsJwtGuard)
+  @SubscribeMessage('unsubscribeDevice')
+  async unsubscribeDevice(
+    @MessageBody() body: { deviceId: string },
+    @ConnectedSocket() socket: any,
+  ) {
+    if (!body?.deviceId) return { ok: false, message: 'deviceId required' };
+    await socket.leave(this.realtime.deviceRoom(body.deviceId));
+    return { ok: true };
+  }
+
+  onModuleDestroy() {
+    this.pubClient?.disconnect();
+    this.subClient?.disconnect();
   }
 }

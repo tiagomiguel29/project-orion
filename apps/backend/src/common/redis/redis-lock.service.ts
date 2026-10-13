@@ -40,10 +40,10 @@ export class RedisLockService {
     } finally {
       // Release only if we still own it (the TTL is the backstop otherwise).
       try {
-        const current = await this.redis.get(key);
-        if (current === token) {
-          await this.redis.del(key);
-        }
+        await this.redis.eval(
+          "if redis.call('GET', KEYS[1]) == ARGV[1] then return redis.call('DEL', KEYS[1]) else return 0 end",
+          1, key, token,
+        );
       } catch {
         // ignore — the TTL will expire the lock
       }

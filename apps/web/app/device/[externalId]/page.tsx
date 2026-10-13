@@ -1,6 +1,6 @@
 "use client"
 
-import { use, useState } from "react"
+import { use, useEffect, useState } from "react"
 import useSWR from "swr"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/components/auth-provider"
@@ -12,7 +12,7 @@ import {
   RANGE_LABELS,
   type DashboardRange,
 } from "@/lib/dashboard-service"
-import { mapDeviceToSystem, mapDeviceToChartData, generateTicks, formatTickLabel, getRangeDomain } from "@/lib/device-mapper"
+import { mapDeviceToSystem, mapDeviceToChartData, generateTicks, formatTickLabel, getRangeDomain, shouldShowDots } from "@/lib/device-mapper"
 import { StatusIndicator } from "@/components/status-indicator"
 import { MetricBar } from "@/components/metric-bar"
 import { cn } from "@/lib/utils"
@@ -101,7 +101,13 @@ export default function DevicePage({ params }: DevicePageProps) {
   const router = useRouter()
   const { isAuthenticated, authState, token } = useAuth()
   const [range, setRange] = useState<DashboardRange>("1h")
-  const chartNowMs = Date.now()
+  const [chartNowMs, setChartNowMs] = useState(Date.now)
+  useEffect(() => {
+    setChartNowMs(Date.now())
+    if (range === "all") return
+    const timer = setInterval(() => setChartNowMs(Date.now()), range === "1m" ? 1000 : 5000)
+    return () => clearInterval(timer)
+  }, [range])
 
   const { data: deviceData, error, isLoading } = useSWR(
     isAuthenticated && token ? ["device", externalId, range, token] : null,
@@ -128,7 +134,13 @@ export default function DevicePage({ params }: DevicePageProps) {
   const ramTicks = generateTicks(range, chartData?.ram, chartNowMs)
   const networkTicks = generateTicks(range, chartData?.network, chartNowMs)
   const tempTicks = generateTicks(range, chartData?.cpuTemp, chartNowMs)
-  const tickFormatter = (ts: number) => formatTickLabel(ts, range)
+  const allSpanMs = cpuDomain[1] - cpuDomain[0]
+  const tickLabelRange = range === "all"
+    ? allSpanMs <= 5 * 60_000 ? "1m" : allSpanMs <= 24 * 60 * 60_000 ? "1h" : "all"
+    : range
+  const tickFormatter = (ts: number) => range === "all" && allSpanMs > 365 * 24 * 60 * 60_000
+    ? `${formatTickLabel(ts, "all")} ${new Date(ts).getFullYear()}`
+    : formatTickLabel(ts, tickLabelRange)
 
   // Auth gate
   if (authState === "loading") {
@@ -428,7 +440,10 @@ export default function DevicePage({ params }: DevicePageProps) {
             </div>
 
             {/* Charts */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4"
+              data-testid="device-charts" data-range={range}
+              data-cpu-points={chartData.cpu.length} data-ram-points={chartData.ram.length}
+              data-network-points={chartData.network.length} data-temp-points={chartData.cpuTemp.length}>
               {/* CPU Chart */}
               <ChartPanel title="CPU Usage" color="#4ade80" icon={<Cpu className="h-3 w-3" />}>
                 <ResponsiveContainer width="100%" height={200}>
@@ -443,7 +458,7 @@ export default function DevicePage({ params }: DevicePageProps) {
                     <XAxis dataKey="ts" type="number" scale="time" domain={cpuDomain} ticks={cpuTicks} tickFormatter={tickFormatter} tick={{ fontSize: 9, fill: "#6b7a5e" }} axisLine={{ stroke: "#1e2a1c" }} tickLine={false} allowDataOverflow />
                     <YAxis domain={[0, 100]} tick={{ fontSize: 9, fill: "#6b7a5e" }} axisLine={{ stroke: "#1e2a1c" }} tickLine={false} />
                     <Tooltip contentStyle={TOOLTIP_STYLE} labelFormatter={(ts: number) => formatTickLabel(ts, range === "1m" || range === "5m" ? range : "5m")} formatter={(v: number) => [`${v.toFixed(1)}%`, "CPU"]} />
-                    <Area type="monotone" dataKey="value" stroke="#4ade80" strokeWidth={1.5} fill="url(#cpuDetailGrad)" dot={false} connectNulls={false} name="CPU" isAnimationActive={false} />
+                    <Area type="monotone" dataKey="value" stroke="#4ade80" strokeWidth={1.5} fill="url(#cpuDetailGrad)" dot={shouldShowDots(chartData.cpu) ? { r: 3 } : false} connectNulls={false} name="CPU" isAnimationActive={false} />
                   </AreaChart>
                 </ResponsiveContainer>
               </ChartPanel>
@@ -470,7 +485,7 @@ export default function DevicePage({ params }: DevicePageProps) {
                     <XAxis dataKey="ts" type="number" scale="time" domain={ramDomain} ticks={ramTicks} tickFormatter={tickFormatter} tick={{ fontSize: 9, fill: "#6b7a5e" }} axisLine={{ stroke: "#1e2a1c" }} tickLine={false} allowDataOverflow />
                     <YAxis domain={[0, 100]} tick={{ fontSize: 9, fill: "#6b7a5e" }} axisLine={{ stroke: "#1e2a1c" }} tickLine={false} />
                     <Tooltip contentStyle={TOOLTIP_STYLE} labelFormatter={(ts: number) => formatTickLabel(ts, range === "1m" || range === "5m" ? range : "5m")} formatter={(v: number) => [`${v.toFixed(1)}%`, "RAM"]} />
-                    <Area type="monotone" dataKey="value" stroke="#22c55e" strokeWidth={1.5} fill="url(#ramDetailGrad)" dot={false} connectNulls={false} name="RAM" isAnimationActive={false} />
+                    <Area type="monotone" dataKey="value" stroke="#22c55e" strokeWidth={1.5} fill="url(#ramDetailGrad)" dot={shouldShowDots(chartData.ram) ? { r: 3 } : false} connectNulls={false} name="RAM" isAnimationActive={false} />
                   </AreaChart>
                 </ResponsiveContainer>
               </ChartPanel>
@@ -509,8 +524,8 @@ export default function DevicePage({ params }: DevicePageProps) {
                     <XAxis dataKey="ts" type="number" scale="time" domain={networkDomain} ticks={networkTicks} tickFormatter={tickFormatter} tick={{ fontSize: 9, fill: "#6b7a5e" }} axisLine={{ stroke: "#1e2a1c" }} tickLine={false} allowDataOverflow />
                     <YAxis tick={{ fontSize: 9, fill: "#6b7a5e" }} axisLine={{ stroke: "#1e2a1c" }} tickLine={false} />
                     <Tooltip contentStyle={TOOLTIP_STYLE} labelFormatter={(ts: number) => formatTickLabel(ts, range === "1m" || range === "5m" ? range : "5m")} formatter={(v: number, name: string) => [`${v.toFixed(2)} MB/s`, name === "download" ? "In" : "Out"]} />
-                    <Area type="monotone" dataKey="download" stroke="#4ade80" strokeWidth={1.5} fill="url(#dlDetailGrad)" dot={false} connectNulls={false} isAnimationActive={false} />
-                    <Area type="monotone" dataKey="upload" stroke="#3b82f6" strokeWidth={1.5} fill="url(#ulDetailGrad)" dot={false} connectNulls={false} isAnimationActive={false} />
+                    <Area type="monotone" dataKey="download" stroke="#4ade80" strokeWidth={1.5} fill="url(#dlDetailGrad)" dot={shouldShowDots(chartData.network.map(point => ({ value: point.download }))) ? { r: 3 } : false} connectNulls={false} isAnimationActive={false} />
+                    <Area type="monotone" dataKey="upload" stroke="#3b82f6" strokeWidth={1.5} fill="url(#ulDetailGrad)" dot={shouldShowDots(chartData.network.map(point => ({ value: point.upload }))) ? { r: 3 } : false} connectNulls={false} isAnimationActive={false} />
                   </AreaChart>
                 </ResponsiveContainer>
               </ChartPanel>
@@ -541,7 +556,7 @@ export default function DevicePage({ params }: DevicePageProps) {
                     <XAxis dataKey="ts" type="number" scale="time" domain={tempDomain} ticks={tempTicks} tickFormatter={tickFormatter} tick={{ fontSize: 9, fill: "#6b7a5e" }} axisLine={{ stroke: "#1e2a1c" }} tickLine={false} allowDataOverflow />
                     <YAxis domain={[20, 100]} tick={{ fontSize: 9, fill: "#6b7a5e" }} axisLine={{ stroke: "#1e2a1c" }} tickLine={false} />
                     <Tooltip contentStyle={TOOLTIP_STYLE} labelFormatter={(ts: number) => formatTickLabel(ts, range === "1m" || range === "5m" ? range : "5m")} formatter={(v: number) => [`${v.toFixed(1)}°C`, "Temp"]} />
-                    <Area type="monotone" dataKey="value" stroke={getTempColor(system.temperature.current)} strokeWidth={1.5} fill="url(#tempDetailGrad)" dot={false} connectNulls={false} name="Temp" isAnimationActive={false} />
+                    <Area type="monotone" dataKey="value" stroke={getTempColor(system.temperature.current)} strokeWidth={1.5} fill="url(#tempDetailGrad)" dot={shouldShowDots(chartData.cpuTemp) ? { r: 3 } : false} connectNulls={false} name="Temp" isAnimationActive={false} />
                   </AreaChart>
                 </ResponsiveContainer>
               </ChartPanel>

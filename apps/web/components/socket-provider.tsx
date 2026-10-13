@@ -29,6 +29,7 @@ export function useSocket() {
 export function SocketProvider({ children }: { children: ReactNode }) {
   const { token, isAuthenticated } = useAuth()
   const socketRef = useRef<Socket | null>(null)
+  const [socket, setSocket] = useState<Socket | null>(null)
   const [connected, setConnected] = useState(false)
 
   useEffect(() => {
@@ -37,6 +38,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       if (socketRef.current) {
         socketRef.current.disconnect()
         socketRef.current = null
+        setSocket(null)
         setConnected(false)
       }
       return
@@ -44,6 +46,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
 
     const socket = createSocket(token)
     socketRef.current = socket
+    setSocket(socket)
 
     socket.on("connect", () => {
       setConnected(true)
@@ -58,12 +61,13 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     return () => {
       socket.disconnect()
       socketRef.current = null
+      setSocket(null)
       setConnected(false)
     }
   }, [isAuthenticated, token])
 
   return (
-    <SocketContext.Provider value={{ socket: socketRef.current, connected }}>
+    <SocketContext.Provider value={{ socket, connected }}>
       {children}
     </SocketContext.Provider>
   )
