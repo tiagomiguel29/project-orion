@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+  <title id="title">Scope — Open-source infrastructure monitoring</title>
+  <desc id="desc">A dark Scope card with a green live metrics chart.</desc>
+  <defs>
+    <linearGradient id="background" x2="1" y2="1"><stop stop-color="#0c130d"/><stop offset="1" stop-color="#080a08"/></linearGradient>
+    <linearGradient id="signal" x2="0" y2="1"><stop stop-color="#4ade80" stop-opacity=".28"/><stop offset="1" stop-color="#4ade80" stop-opacity="0"/></linearGradient>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0H0V40" fill="none" stroke="#23402b" stroke-opacity=".4"/></pattern>
+    <filter id="glow"><feGaussianBlur stdDeviation="13"/></filter>
+  </defs>
+  <rect width="1200" height="630" fill="url(#background)"/>
+  <rect width="1200" height="630" fill="url(#grid)"/>
+  <rect x="40" y="40" width="1120" height="550" rx="3" fill="none" stroke="#3a6b46" stroke-width="2"/>
+  <path d="M40 90H1160" stroke="#294733"/>
+  <rect x="68" y="62" width="13" height="13" fill="#4ade80"/>
+  <text x="92" y="74" fill="#91b99b" font-family="monospace" font-size="16" letter-spacing="3">OPEN SOURCE / SELF HOSTED</text>
+  <circle cx="1090" cy="68" r="5" fill="#4ade80"/>
+  <text x="1110" y="74" fill="#91b99b" font-family="monospace" font-size="14" letter-spacing="2">LIVE</text>
+  <text x="70" y="255" fill="#f0f7ef" font-family="Arial, sans-serif" font-weight="800" font-size="106" letter-spacing="-7">Scope</text>
+  <rect x="70" y="275" width="98" height="5" fill="#4ade80"/>
+  <text x="70" y="335" fill="#c8d9c9" font-family="monospace" font-size="23" letter-spacing="1">INFRASTRUCTURE MONITORING</text>
+  <text x="70" y="386" fill="#8faa93" font-family="monospace" font-size="18">Servers · Containers · Tunnels</text>
+  <text x="70" y="425" fill="#8faa93" font-family="monospace" font-size="18">Live metrics · History · Alerts</text>
+  <rect x="635" y="168" width="480" height="302" fill="#0c130d" stroke="#35523c"/>
+  <text x="663" y="203" fill="#8faa93" font-family="monospace" font-size="14" letter-spacing="2">CPU UTILIZATION</text>
+  <text x="1039" y="203" fill="#4ade80" font-family="monospace" font-size="14">LIVE</text>
+  <path d="M665 244H1085M665 310H1085M665 376H1085M665 442H1085" stroke="#23402b"/>
+  <path d="M665 376L702 367 739 380 776 355 813 360 850 340 887 361 924 316 961 330 998 300 1035 315 1085 278V442H665Z" fill="url(#signal)"/>
+  <path d="M665 376L702 367 739 380 776 355 813 360 850 340 887 361 924 316 961 330 998 300 1035 315 1085 278" fill="none" stroke="#4ade80" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>
+  <circle cx="1085" cy="278" r="13" fill="#4ade80" fill-opacity=".5" filter="url(#glow)"/>
+  <circle cx="1085" cy="278" r="7" fill="#4ade80"/>
+  <path d="M70 525H1130" stroke="#294733"/>
+  <text x="70" y="559" fill="#648a6a" font-family="monospace" font-size="14" letter-spacing="1">BUILT TO SEE THE WHOLE SIGNAL.</text>
+  <text x="1099" y="559" text-anchor="end" fill="#4ade80" font-family="monospace" font-size="14" letter-spacing="1">[SCOPE]</text>
+</svg>

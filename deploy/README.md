@@ -41,6 +41,13 @@ it for CORS and passkeys. Set `SCOPE_API_URL` and
 dashboard uses them when generating agent installation commands. Leave
 `SCOPE_AGENT_TLS_DISABLE=false` for a TLS-enabled public gRPC endpoint.
 
+Set `SCOPE_LANDING_URL` to the landing page's public HTTPS origin when it has
+one. The image generates canonical links, social preview tags, `robots.txt`,
+and `sitemap.xml` when the container starts. To enable Umami, set
+`SCOPE_UMAMI_WEBSITE_ID`; the Cloud script is the default. Set
+`SCOPE_UMAMI_SCRIPT_URL` for a self-hosted Umami instance. These values remain
+optional and can be changed without rebuilding the image.
+
 Notifications are configured by an admin in the dashboard's **Notifications**
 page. Enable the global alert switch, set offline/CPU/RAM/disk/temperature
 thresholds, and choose Webhook, Discord, or Email. Device pages link to their

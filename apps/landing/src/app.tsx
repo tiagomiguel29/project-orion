@@ -6,6 +6,8 @@ import {
   Link,
   Outlet,
   RouterProvider,
+  createMemoryHistory,
+  useLocation,
 } from "@tanstack/react-router";
 import {
   ArrowUpRight,
@@ -38,6 +40,39 @@ import "./style.css";
 import { ProductDemo, SignalPreview, ContainerPreview } from "./product-demo";
 import composeExample from "../../../deploy/compose.yml?raw";
 const REPO = "https://github.com/tiagomiguel29/project-orion";
+const pageMetadata = {
+  "/": {
+    title: "Scope — Open-source infrastructure monitoring",
+    description: "Monitor servers, containers, and Cloudflare tunnels with live metrics, history, and alerts. Self-host Scope with Docker and install its lightweight Go agent.",
+  },
+  "/docs": {
+    title: "Install Scope — Self-hosted monitoring guide",
+    description: "Deploy Scope with Docker images, install the Go agent in one command, and configure alerts through webhooks, Discord, Resend, Amazon SES, or SMTP.",
+  },
+} as const;
+
+function PageMetadata() {
+  const pathname = useLocation({ select: (location) => location.pathname });
+  useEffect(() => {
+    const page = pageMetadata[pathname as keyof typeof pageMetadata] ?? pageMetadata["/"];
+    document.title = page.title;
+    const setMeta = (selector: string, attribute: string, value: string) => {
+      const meta = document.head.querySelector<HTMLMetaElement>(selector);
+      if (meta) meta.setAttribute(attribute, value);
+    };
+    setMeta('meta[name="description"]', "content", page.description);
+    setMeta('meta[property="og:title"]', "content", page.title);
+    setMeta('meta[property="og:description"]', "content", page.description);
+    setMeta('meta[name="twitter:title"]', "content", page.title);
+    setMeta('meta[name="twitter:description"]', "content", page.description);
+    const siteUrl = window.__SCOPE_LANDING_CONFIG__?.siteUrl;
+    const canonical = document.head.querySelector<HTMLLinkElement>('link[rel="canonical"]');
+    const url = siteUrl ? `${siteUrl}${pathname === "/" ? "/" : pathname}` : "";
+    if (canonical && url) canonical.href = url;
+    setMeta('meta[property="og:url"]', "content", url);
+  }, [pathname]);
+  return null;
+}
 function Logo() {
   return (
     <span className="brand">
@@ -112,6 +147,7 @@ function Shell() {
   const [menu, setMenu] = useState(false);
   return (
     <>
+      <PageMetadata />
       <a className="skip-link" href="#main">
         Skip to content
       </a>
@@ -205,10 +241,10 @@ function Home() {
               entire stack on your infrastructure.
             </p>
             <div className="hero-actions">
-              <Link className="button primary" to="/docs">
+              <Link className="button primary" to="/docs" data-umami-event="hero-deploy">
                 DEPLOY SCOPE <ArrowUpRight size={16} />
               </Link>
-              <a className="button secondary" href={REPO}>
+              <a className="button secondary" href={REPO} data-umami-event="hero-source">
                 <Github size={16} /> VIEW SOURCE
               </a>
             </div>
@@ -487,7 +523,7 @@ function Home() {
           machine with a command from the dashboard. No source checkout needed.
         </p>
         <CopyCommand command="docker compose --env-file .env -f compose.yml up -d" />
-        <Link className="button primary" to="/docs">
+        <Link className="button primary" to="/docs" data-umami-event="setup-guide">
           READ THE SETUP GUIDE <ArrowRight size={16} />
         </Link>
         <span className="getting-note">
@@ -597,13 +633,7 @@ function HighlightedCompose() {
   );
 }
 function Docs() {
-  useEffect(() => {
-    document.title = "Get started — Scope";
-    window.scrollTo(0, 0);
-    return () => {
-      document.title = "Scope // Infrastructure Monitor";
-    };
-  }, []);
+  useEffect(() => { window.scrollTo(0, 0); }, []);
   return (
     <main id="main" className="docs section">
       <Link to="/" className="text-link">
@@ -703,6 +733,14 @@ function Docs() {
         or load balancer; Redis shares realtime state across replicas. A proxy
         container can also join the Compose network and route to the service
         names directly.
+      </p>
+      <p className="docs-scale-note">
+        Once the landing page has a public HTTPS address, set
+        <code> SCOPE_LANDING_URL</code> in <code>.env</code> for canonical links,
+        social previews, and its sitemap. To enable Umami analytics, add the
+        website ID as <code>SCOPE_UMAMI_WEBSITE_ID</code>. Umami Cloud is the
+        default; a self-hosted instance can use
+        <code> SCOPE_UMAMI_SCRIPT_URL</code>. All three settings are optional.
       </p>
       <HighlightedCompose />
       <h2 id="server" className="docs-section-heading">START THE SCOPE SERVER.</h2>
@@ -938,10 +976,15 @@ const docsRoute = createRoute({
   path: "/docs",
   component: Docs,
 });
-const router = createRouter({
-  routeTree: rootRoute.addChildren([indexRoute, docsRoute]),
-  scrollRestoration: true,
-});
+const routeTree = rootRoute.addChildren([indexRoute, docsRoute]);
+export function createLandingRouter(path?: string) {
+  return createRouter({
+    routeTree,
+    ...(path ? { history: createMemoryHistory({ initialEntries: [path] }) } : {}),
+    scrollRestoration: true,
+  });
+}
+const router = createLandingRouter();
 declare module "@tanstack/react-router" {
   interface Register {
     router: typeof router;

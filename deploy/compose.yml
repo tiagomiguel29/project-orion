@@ -84,6 +84,10 @@ services:
   landing:
     image: tiagomiguel29/scope-landing:${SCOPE_IMAGE_TAG:-main}
     restart: unless-stopped
+    environment:
+      SCOPE_LANDING_URL: ${SCOPE_LANDING_URL:-}
+      SCOPE_UMAMI_WEBSITE_ID: ${SCOPE_UMAMI_WEBSITE_ID:-}
+      SCOPE_UMAMI_SCRIPT_URL: ${SCOPE_UMAMI_SCRIPT_URL:-}
     ports:
       - "${SCOPE_BIND_ADDRESS:-127.0.0.1}:${SCOPE_LANDING_PORT:-8080}:80"
 

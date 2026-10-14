@@ -12,6 +12,7 @@ node_modules/
 .npm/
 .next/
 dist/
+.prerender/
 coverage/
 *.tsbuildinfo
 
