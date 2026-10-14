@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   createRootRoute,
   createRoute,
@@ -29,6 +29,10 @@ import {
   Container,
   Fingerprint,
   Crosshair,
+  Bell,
+  Webhook,
+  MessageCircle,
+  Mail,
 } from "lucide-react";
 import "./style.css";
 import { ProductDemo, SignalPreview, ContainerPreview } from "./product-demo";
@@ -44,6 +48,64 @@ function Logo() {
         [SCOPE]<small>INFRASTRUCTURE MONITOR</small>
       </span>
     </span>
+  );
+}
+const previewAlerts = [
+  { type: "AGENT OFFLINE", device: "production-01", detail: "No telemetry for 20 seconds", severity: "CRITICAL", color: "critical" },
+  { type: "CPU USAGE", device: "edge-node", detail: "92.4% usage · threshold 85%", severity: "WARNING", color: "warning" },
+  { type: "RECOVERED", device: "production-01", detail: "Agent is back online", severity: "RESOLVED", color: "resolved" },
+] as const;
+function NotificationPreview() {
+  const [index, setIndex] = useState(0);
+  const [visible, setVisible] = useState(false);
+  const [reduced, setReduced] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const updateMotion = () => setReduced(motion.matches);
+    updateMotion();
+    motion.addEventListener("change", updateMotion);
+    const observer = new IntersectionObserver(([entry]) => setVisible(entry.isIntersecting), { threshold: 0.1 });
+    if (ref.current) observer.observe(ref.current);
+    return () => { motion.removeEventListener("change", updateMotion); observer.disconnect(); };
+  }, []);
+  useEffect(() => {
+    if (reduced || !visible) return;
+    const timer = window.setInterval(() => {
+      if (!document.hidden) setIndex((current) => (current + 1) % previewAlerts.length);
+    }, 5600);
+    return () => window.clearInterval(timer);
+  }, [reduced, visible]);
+  const alert = previewAlerts[index];
+  return (
+    <div ref={ref} className="notification-preview corner-marks" aria-label="Simulated notification flow">
+      <div className="notification-preview-head">
+        <span><Bell size={14} /> ALERT ENGINE</span>
+        <span>INTERACTIVE PREVIEW / NO MESSAGES SENT</span>
+      </div>
+      <div className="notification-preview-body" key={index}>
+        <div className="notification-preview-event">
+          <div className="notification-preview-event-top">
+            <span className={`notification-severity ${alert.color}`}><span className="status-dot" /> {alert.severity}</span>
+            <span>NOW</span>
+          </div>
+          <strong>{alert.type}</strong>
+          <p>{alert.device} <span>//</span> {alert.detail}</p>
+        </div>
+        <div className="notification-preview-rail" aria-hidden="true"><span /></div>
+        <div className="notification-preview-destinations">
+          <div><Webhook size={16} /><span>WEBHOOK</span><small>QUEUED → SENT</small><Check size={14} /></div>
+          <div><MessageCircle size={16} /><span>DISCORD</span><small>QUEUED → SENT</small><Check size={14} /></div>
+          <div><Mail size={16} /><span>EMAIL / RESEND · SES · SMTP</span><small>QUEUED → SENT</small><Check size={14} /></div>
+        </div>
+      </div>
+      <div className="notification-preview-foot">
+        <span>ONE EVENT / SELECT YOUR CHANNELS</span>
+        <button type="button" onClick={() => setIndex((current) => (current + 1) % previewAlerts.length)}>
+          NEXT EVENT <ArrowRight size={13} />
+        </button>
+      </div>
+    </div>
   );
 }
 function Shell() {
@@ -281,6 +343,24 @@ function Home() {
             PROJECT GUIDE <ArrowUpRight size={15} />
           </a>
         </div>
+      </section>
+      <section className="notifications-showcase section" aria-labelledby="notifications-title">
+        <div className="notifications-copy">
+          <p className="eyebrow">ALERTS / NOTIFICATION ROUTING</p>
+          <h2 id="notifications-title">KNOW WHEN<br /><span>THE SIGNAL CHANGES.</span></h2>
+          <p>
+            Set fleet-wide thresholds for agent availability, CPU, RAM, disk,
+            and temperature. Override rules for individual devices, then route
+            alerts to a webhook, Discord, or email through Resend, Amazon SES, or SMTP.
+          </p>
+          <div className="notification-points">
+            <span><Check size={14} /> Trigger and recovery alerts</span>
+            <span><Check size={14} /> Per-device overrides</span>
+            <span><Check size={14} /> Delivery history and retries</span>
+          </div>
+          <Link className="text-link" to="/docs">CONFIGURE NOTIFICATIONS <ArrowUpRight size={15} /></Link>
+        </div>
+        <NotificationPreview />
       </section>
       <section id="architecture" className="architecture section">
         <div className="architecture-copy">
@@ -565,7 +645,7 @@ function Docs() {
       </p>
       <div className="docs-steps">
         <article>
-          <span>A</span>
+          <span>01</span>
           <div>
             <h2>DOWNLOAD THE DEPLOYMENT FILES.</h2>
             <p>
@@ -576,7 +656,7 @@ function Docs() {
           </div>
         </article>
         <article>
-          <span>B</span>
+          <span>02</span>
           <div>
             <h2>SET ENDPOINTS AND SECRETS.</h2>
             <p>
@@ -595,7 +675,7 @@ function Docs() {
           </div>
         </article>
         <article>
-          <span>C</span>
+          <span>03</span>
           <div>
             <h2>START THE STACK.</h2>
             <p>
@@ -740,6 +820,85 @@ function Docs() {
             </p>
           </div>
         </article>
+      </div>
+      <h2 id="alerts" className="docs-section-heading">CONFIGURE NOTIFICATIONS.</h2>
+      <p className="docs-section-intro">
+        Notifications start disabled. Sign in as an admin and open the bell in
+        the dashboard header. The page shows recent alerts and delivery
+        attempts alongside the settings. Thresholds are evaluated when new
+        telemetry arrives; offline alerts fire after the configured timeout.
+      </p>
+      <div className="docs-steps">
+        <article>
+          <span>07</span>
+          <div>
+            <h2>CHOOSE GLOBAL RULES.</h2>
+            <p>
+              Enable notifications, then set the offline timeout in seconds,
+              CPU/RAM/disk thresholds in percent, and CPU temperature in °C.
+              Recovery alerts are optional. Scope records an alert when a rule
+              changes state, rather than sending one for every metric sample.
+            </p>
+          </div>
+        </article>
+        <article>
+          <span>08</span>
+          <div>
+            <h2>CONNECT YOUR PROVIDERS.</h2>
+            <p>
+              For Webhook, enter a public HTTPS endpoint. For Discord, paste a
+              Discord channel webhook URL. Switch on either provider and save;
+              Scope stores provider secrets encrypted using your
+              <code> MFA_ENCRYPTION_SECRET</code>. For email, choose Resend,
+              Amazon SES, or SMTP in the same page, enter recipients, and
+              enable Email.
+            </p>
+            <p className="docs-note">
+              <strong>Resend:</strong> Verify a sending domain, create a sending-only API key,
+              then enter the key and sender address. <strong>Amazon SES:</strong> Verify
+              the sender in your AWS region, then enter the region and an IAM
+              access key pair, or use the backend&apos;s IAM role. Both options
+              save directly from the dashboard without a redeploy.
+            </p>
+            <p className="docs-note">
+              <strong>SMTP:</strong> Add these values to the deployment <code>.env</code> on every backend replica.
+              Port <code>587</code> uses STARTTLS by default; port <code>465</code> needs <code>SCOPE_SMTP_SECURE=true</code>.
+            </p>
+            <pre className="install-example"><code>{`# SMTP option in the deployment .env
+SCOPE_SMTP_HOST=smtp.example.com
+SCOPE_SMTP_PORT=587
+SCOPE_SMTP_USER=your-smtp-user
+SCOPE_SMTP_PASSWORD=your-smtp-password
+SCOPE_SMTP_FROM=alerts@example.com`}</code></pre>
+            <p className="docs-note">
+              After changing SMTP variables, run <code>docker compose --env-file .env -f compose.yml up -d backend</code>.
+              Save settings before using the Test buttons; they send a real message.
+            </p>
+          </div>
+        </article>
+        <article>
+          <span>09</span>
+          <div>
+            <h2>OVERRIDE A DEVICE.</h2>
+            <p>
+              Open a device and select <strong>Alerts</strong>, or choose it on
+              the Notifications page. Turn on custom settings to replace its
+              thresholds and channel choices; turn custom settings off to
+              inherit the global policy again. The global enable switch and
+              provider switches always remain the master controls.
+            </p>
+          </div>
+        </article>
+      </div>
+      <div className="docs-next">
+        <Bell size={25} />
+        <div>
+          <h3>NEED DELIVERY DETAILS?</h3>
+          <p>Read provider setup, alert payloads, and retry behavior in the notifications guide.</p>
+        </div>
+        <a className="button secondary" href={`${REPO}/blob/main/docs/notifications.md`} target="_blank" rel="noreferrer">
+          Notifications guide <ArrowUpRight size={16} />
+        </a>
       </div>
       <div className="docs-next">
         <Terminal size={25} />

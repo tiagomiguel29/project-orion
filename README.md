@@ -169,6 +169,24 @@ See [the verification report](docs/live-metrics.md) for the complete ingestion,
 persistence, Redis, WebSocket and chart flow; per-range point budgets; repeatable
 three-replica/failure tests; and retention/capacity limits.
 
+## Notifications
+
+Admins can open **Notifications** from the dashboard to enable alerts, set
+offline/CPU/RAM/disk/temperature thresholds, and configure HTTPS webhooks,
+Discord webhooks, or email. Each device page links to an override for its
+thresholds and channels. Global provider switches remain authoritative. Alerts
+are recorded on threshold transitions, with optional recovery messages; failed
+deliveries retry from a PostgreSQL queue shared by all backend replicas.
+
+For email, choose Resend (API key), Amazon SES (IAM key pair or instance role),
+or SMTP in the Notifications page, then enter recipients. Resend and SES can be
+configured there without redeploying; SMTP uses `SCOPE_SMTP_*` variables on
+every backend replica. Provider secrets are encrypted using
+`MFA_ENCRYPTION_SECRET`; all replicas must use the same secret. The
+[notifications guide](docs/notifications.md) covers setup, webhook payloads,
+retries, and device overrides. The admin page
+has test-send buttons for each provider and shows recent alerts and deliveries.
+
 ## Landing page
 
 Run `npm run dev:landing` to open the standalone marketing site at

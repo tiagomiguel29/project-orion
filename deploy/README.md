@@ -41,6 +41,18 @@ it for CORS and passkeys. Set `SCOPE_API_URL` and
 dashboard uses them when generating agent installation commands. Leave
 `SCOPE_AGENT_TLS_DISABLE=false` for a TLS-enabled public gRPC endpoint.
 
+Notifications are configured by an admin in the dashboard's **Notifications**
+page. Enable the global alert switch, set offline/CPU/RAM/disk/temperature
+thresholds, and choose Webhook, Discord, or Email. Device pages link to their
+own overrides. Provider secrets are encrypted in the database using
+`MFA_ENCRYPTION_SECRET`; keep that secret stable across backend replicas. For
+Email, choose Resend (API key) or Amazon SES (IAM keys or instance role) in the
+admin UI, or use SMTP through the `SCOPE_SMTP_*` variables in `.env`. All backend
+replicas share delivery work through PostgreSQL, so do not use different SMTP
+settings or encryption secrets across replicas.
+See the [notifications guide](../docs/notifications.md) for provider setup,
+delivery behavior, and the webhook payload.
+
 The migration container finishes before the backend starts. PostgreSQL and
 Redis stay on the Compose network without host port bindings. Redis coordinates
 realtime subscriptions and ingestion across backend replicas. The sample's fixed
