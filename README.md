@@ -22,16 +22,17 @@ scope/
 Scope publishes the backend, dashboard, and landing page as Linux x64/ARM64
 images on Docker Hub. The [deployment guide](deploy/README.md)
 and [Compose example](deploy/compose.yml) use those images with PostgreSQL,
-Redis, a one-time migration, and Caddy for HTTPS and gRPC. Set three DNS names,
-fill the secrets in `deploy/.env.example`, then run:
+Redis, and a one-time migration. Set the public endpoints and secrets in
+`deploy/.env.example`, then run from the `deploy` directory:
 
 ```bash
 docker compose --env-file .env -f compose.yml up -d
 ```
 
-The Compose file and its companion `Caddyfile` and `.env.example` can be
-downloaded without cloning this repository. The landing page's `/docs` guide
-includes the download commands and the complete Compose file.
+The Compose file and its companion `.env.example` can be downloaded without
+cloning this repository. Bring your own reverse proxy or hosting setup for
+HTTPS, WebSockets, and gRPC. The landing page's `/docs` guide includes the
+download commands and the complete Compose file.
 
 ## Quick start
 

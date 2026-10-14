@@ -41,6 +41,9 @@ services:
   backend:
     image: tiagomiguel29/scope-backend:${SCOPE_IMAGE_TAG:-main}
     restart: unless-stopped
+    ports:
+      - "${SCOPE_BIND_ADDRESS:-127.0.0.1}:${SCOPE_API_PORT:-4000}:4000"
+      - "${SCOPE_BIND_ADDRESS:-127.0.0.1}:${SCOPE_GRPC_PORT:-50052}:50052"
     environment:
       HTTP_PORT: 4000
       GRPC_PORT: 50052
@@ -48,8 +51,8 @@ services:
       REDIS_URL: redis://redis:6379
       REQUIRE_REDIS: "true"
       DB_SYNCHRONIZE: "false"
-      CORS_ORIGIN: https://${SCOPE_WEB_DOMAIN:?Set SCOPE_WEB_DOMAIN in .env}
-      WEBAUTHN_ORIGIN: https://${SCOPE_WEB_DOMAIN:?Set SCOPE_WEB_DOMAIN in .env}
+      CORS_ORIGIN: ${SCOPE_WEB_ORIGIN:?Set SCOPE_WEB_ORIGIN in .env}
+      WEBAUTHN_ORIGIN: ${SCOPE_WEB_ORIGIN:?Set SCOPE_WEB_ORIGIN in .env}
       AGENT_JWT_SECRET: ${AGENT_JWT_SECRET:?Set AGENT_JWT_SECRET in .env}
       USER_JWT_SECRET: ${USER_JWT_SECRET:?Set USER_JWT_SECRET in .env}
       MFA_ENCRYPTION_SECRET: ${MFA_ENCRYPTION_SECRET:?Set MFA_ENCRYPTION_SECRET in .env}
@@ -62,37 +65,20 @@ services:
   web:
     image: tiagomiguel29/scope-web:${SCOPE_IMAGE_TAG:-main}
     restart: unless-stopped
+    ports:
+      - "${SCOPE_BIND_ADDRESS:-127.0.0.1}:${SCOPE_WEB_PORT:-3000}:3000"
     environment:
-      SCOPE_PUBLIC_API_URL: https://${SCOPE_API_DOMAIN:?Set SCOPE_API_DOMAIN in .env}
-      SCOPE_PUBLIC_AGENT_SERVER_ADDRESS: ${SCOPE_API_DOMAIN:?Set SCOPE_API_DOMAIN in .env}:443
-      SCOPE_PUBLIC_AGENT_TLS_DISABLE: "false"
+      SCOPE_PUBLIC_API_URL: ${SCOPE_API_URL:?Set SCOPE_API_URL in .env}
+      SCOPE_PUBLIC_AGENT_SERVER_ADDRESS: ${SCOPE_AGENT_GRPC_ADDRESS:?Set SCOPE_AGENT_GRPC_ADDRESS in .env}
+      SCOPE_PUBLIC_AGENT_TLS_DISABLE: ${SCOPE_AGENT_TLS_DISABLE:-false}
     depends_on:
       - backend
 
   landing:
     image: tiagomiguel29/scope-landing:${SCOPE_IMAGE_TAG:-main}
     restart: unless-stopped
-
-  caddy:
-    image: caddy:2-alpine
-    restart: unless-stopped
-    environment:
-      SCOPE_WEB_DOMAIN: ${SCOPE_WEB_DOMAIN:?Set SCOPE_WEB_DOMAIN in .env}
-      SCOPE_API_DOMAIN: ${SCOPE_API_DOMAIN:?Set SCOPE_API_DOMAIN in .env}
-      SCOPE_LANDING_DOMAIN: ${SCOPE_LANDING_DOMAIN:?Set SCOPE_LANDING_DOMAIN in .env}
     ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
-      - caddy_config:/config
-    depends_on:
-      - web
-      - backend
-      - landing
+      - "${SCOPE_BIND_ADDRESS:-127.0.0.1}:${SCOPE_LANDING_PORT:-8080}:80"
 
 volumes:
   postgres_data:
-  caddy_data:
-  caddy_config:

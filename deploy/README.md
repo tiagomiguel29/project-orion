@@ -1,18 +1,16 @@
 # Deploy Scope from container images
 
-The [Compose example](compose.yml) pulls `scope-backend`, `scope-web`, and
-`scope-landing` from Docker Hub under `tiagomiguel29`. PostgreSQL, Redis, and
-Caddy come from their upstream registries. The web image reads its browser API
-and agent defaults from runtime environment variables, so it does not need to
-be rebuilt for each domain.
+The [Compose example](compose.yml) pulls `tiagomiguel29/scope-backend`,
+`tiagomiguel29/scope-web`, and `tiagomiguel29/scope-landing` from Docker Hub.
+It runs PostgreSQL, Redis, and a one-time database migration. No source checkout
+or bundled reverse proxy is required.
 
-The stack needs three DNS names pointing to the host: one for the landing page,
-one for the dashboard, and one for the API and agent gRPC traffic. Allow inbound
-TCP 80 and 443 so Caddy can obtain and renew trusted certificates. Copy
-[`.env.example`](.env.example) to `.env`, set the DNS names, and fill all four
-secrets. Use long random hex values (for example, `openssl rand -hex 32` for
-each); the PostgreSQL password is embedded in `DATABASE_URL`, so URL-reserved
-characters must be encoded if used. Keep `.env` private.
+Download [compose.yml](compose.yml) and [`.env.example`](.env.example) into the
+same directory, copy `.env.example` to `.env`, and fill in the public endpoints
+and four secrets. Use independent random hex values (for example,
+`openssl rand -hex 32`). The PostgreSQL password is embedded in `DATABASE_URL`,
+so URL-reserved characters need encoding; hex avoids that problem. Keep `.env`
+private.
 
 ```sh
 docker compose --env-file .env -f compose.yml pull
@@ -20,24 +18,36 @@ docker compose --env-file .env -f compose.yml up -d
 docker compose --env-file .env -f compose.yml ps
 ```
 
-The migration container finishes before backend instances start. Schema
-synchronization is disabled, and Redis coordinates realtime subscriptions and
-ingestion across replicas. Caddy discovers backend container addresses through
-Docker DNS for both HTTP/WebSockets and gRPC, so you can scale without changing
-the proxy configuration:
+The example binds the application ports to `127.0.0.1` on the host. Point your
+own reverse proxy at these upstreams, or change `SCOPE_BIND_ADDRESS` to a
+private interface address if the proxy runs elsewhere. Restrict access to the
+unencrypted upstream ports when using a remote proxy.
+If your proxy is a container, connect it to the Compose network and route to
+`web:3000`, `backend:4000`, `backend:50052`, and `landing:80` instead. The
+landing service is optional if you host the site separately.
 
-```sh
-docker compose --env-file .env -f compose.yml up -d --scale backend=3
-```
+| Component | Default upstream | Public proxy behavior |
+| --- | --- | --- |
+| Dashboard | `127.0.0.1:3000` | Serve at `SCOPE_WEB_ORIGIN` over HTTPS. |
+| API and WebSockets | `127.0.0.1:4000` | Serve at `SCOPE_API_URL` over HTTPS; forward WebSocket upgrades. |
+| Agent gRPC | `127.0.0.1:50052` | Serve at `SCOPE_AGENT_GRPC_ADDRESS` with TLS to agents and HTTP/2 to the upstream. |
+| Landing page | `127.0.0.1:8080` | Serve at any hostname you choose. |
 
-The dashboard is at `https://<SCOPE_WEB_DOMAIN>`. Its **Add device** dialog
-generates the one-line Linux/macOS agent installer with
-`https://<SCOPE_API_DOMAIN>` for pairing and `<SCOPE_API_DOMAIN>:443` for gRPC.
-The landing page is at `https://<SCOPE_LANDING_DOMAIN>`.
+The API and gRPC endpoints may share one public hostname and port if your proxy
+routes gRPC requests separately by content type. Set `SCOPE_WEB_ORIGIN` to the
+dashboard's exact public origin, with no trailing slash, because the API uses
+it for CORS and passkeys. Set `SCOPE_API_URL` and
+`SCOPE_AGENT_GRPC_ADDRESS` to addresses reachable from monitored machines; the
+dashboard uses them when generating agent installation commands. Leave
+`SCOPE_AGENT_TLS_DISABLE=false` for a TLS-enabled public gRPC endpoint.
 
-`SCOPE_IMAGE_TAG=main` follows the latest successful main-branch build. Use a
-published version tag or image digest for predictable production upgrades.
-The registry workflow is [container-images.yml](../.github/workflows/container-images.yml).
-Publishing requires the repository's `DOCKERHUB_TOKEN` Actions secret, set to a
-Docker Hub personal access token with Repo Read & Write permission for the
-`tiagomiguel29` account.
+The migration container finishes before the backend starts. PostgreSQL and
+Redis stay on the Compose network without host port bindings. Redis coordinates
+realtime subscriptions and ingestion across backend replicas. The sample's fixed
+host ports allow one backend replica. To scale the backend, replace those port
+bindings with your proxy's container-network service discovery or a load
+balancer that can route to every replica for both API/WebSockets and gRPC.
+
+`SCOPE_IMAGE_TAG=main` follows the latest successful main-branch build. Pin a
+published version tag or image digest for predictable production upgrades. The
+publishing workflow is [container-images.yml](../.github/workflows/container-images.yml).

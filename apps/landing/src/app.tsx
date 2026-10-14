@@ -458,6 +458,64 @@ function CopyCommand({
     </div>
   );
 }
+function HighlightedCompose() {
+  const [copied, setCopied] = useState(false);
+  useEffect(() => {
+    if (!copied) return;
+    const timer = setTimeout(() => setCopied(false), 2000);
+    return () => clearTimeout(timer);
+  }, [copied]);
+
+  const highlightValue = (value: string) =>
+    value.split(/(\$\{[^}]+\}|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|\b(?:true|false|null)\b|\b\d+\b)/g).map((part, index) => {
+      const kind = part.startsWith("${")
+        ? "variable"
+        : /^['"]/.test(part)
+          ? "string"
+          : /^(?:true|false|null|\d+)$/.test(part)
+            ? "literal"
+            : "plain";
+      return <span className={`yaml-${kind}`} key={index}>{part}</span>;
+    });
+
+  return (
+    <section className="docs-compose" aria-labelledby="compose-title">
+      <div className="docs-compose-head">
+        <div>
+          <span>DEPLOYMENT TEMPLATE / YAML</span>
+          <h3 id="compose-title">THE COMPLETE COMPOSE FILE.</h3>
+          <p>Shown in full below. Copy it or download the exact file from the repository.</p>
+        </div>
+        <button
+          type="button"
+          aria-label={copied ? "Compose file copied" : "Copy Compose file"}
+          onClick={async () => {
+            try {
+              await navigator.clipboard.writeText(composeExample);
+              setCopied(true);
+            } catch {
+              setCopied(false);
+            }
+          }}
+        >
+          {copied ? <Check size={15} /> : <Copy size={15} />}
+          {copied ? "COPIED" : "COPY YAML"}
+        </button>
+      </div>
+      <pre className="docs-compose-code"><code>{composeExample.trimEnd().split("\n").map((line, index) => {
+        const key = line.match(/^(\s*)(-\s+)?([A-Za-z_][\w.-]*)(:)(.*)$/);
+        return (
+          <span className="yaml-line" key={index}>
+            {line.trimStart().startsWith("#") ? <span className="yaml-comment">{line}</span> : key ? <>
+              {key[1]}{key[2]}<span className="yaml-key">{key[3]}</span><span className="yaml-punctuation">{key[4]}</span>{highlightValue(key[5])}
+            </> : highlightValue(line)}{"\n"}
+          </span>
+        );
+      })}</code></pre>
+      <span className="sr-only" role="status">{copied ? "Compose file copied" : ""}</span>
+    </section>
+  );
+}
 function Docs() {
   useEffect(() => {
     document.title = "Get started — Scope";
@@ -489,7 +547,7 @@ function Docs() {
         <div>
           <span>01 / SCOPE SERVER</span>
           <strong>Docker Compose</strong>
-          <p>Pulls the dashboard, API, and landing images; runs the data services and TLS proxy.</p>
+          <p>Pulls the dashboard, API, and landing images with PostgreSQL and Redis.</p>
         </div>
         <div>
           <span>02 / MONITORED MACHINE</span>
@@ -501,9 +559,9 @@ function Docs() {
       <p className="docs-section-intro">
         Scope publishes <code>scope-backend</code>, <code>scope-web</code>, and
         <code> scope-landing</code> on Docker Hub under <code>tiagomiguel29</code> for Linux x64
-        and ARM64. The example below adds PostgreSQL, Redis, a one-time database
-        migration, and Caddy for HTTPS, gRPC, and WebSockets. You’ll need Docker
-        Compose, open ports 80 and 443, and three DNS names pointing to the host.
+        and ARM64. The example below adds PostgreSQL, Redis, and a one-time
+        database migration. You choose how to host each component and which
+        reverse proxy handles HTTPS, WebSockets, and gRPC.
       </p>
       <div className="docs-steps">
         <article>
@@ -512,23 +570,21 @@ function Docs() {
             <h2>DOWNLOAD THE DEPLOYMENT FILES.</h2>
             <p>
               These are the complete <a href={`${REPO}/blob/main/deploy/compose.yml`} target="_blank" rel="noreferrer">Compose file <ArrowUpRight size={12} /></a>,
-              TLS proxy configuration, and environment template. No repository
-              clone is needed.
+              and environment template. No repository clone is needed.
             </p>
-            <CopyCommand multiline command={`mkdir scope && cd scope\ncurl -fsSLO ${REPO.replace("github.com", "raw.githubusercontent.com")}/main/deploy/compose.yml\ncurl -fsSLO ${REPO.replace("github.com", "raw.githubusercontent.com")}/main/deploy/Caddyfile\ncurl -fsSLo .env.example ${REPO.replace("github.com", "raw.githubusercontent.com")}/main/deploy/.env.example`} />
+            <CopyCommand multiline command={`mkdir scope && cd scope\ncurl -fsSLO ${REPO.replace("github.com", "raw.githubusercontent.com")}/main/deploy/compose.yml\ncurl -fsSLo .env.example ${REPO.replace("github.com", "raw.githubusercontent.com")}/main/deploy/.env.example`} />
           </div>
         </article>
         <article>
           <span>B</span>
           <div>
-            <h2>SET DOMAINS AND SECRETS.</h2>
+            <h2>SET ENDPOINTS AND SECRETS.</h2>
             <p>
-              Copy the template to <code>.env</code>. Set the public landing,
-              dashboard, and API hostnames, then add a database password and
-              three independent random secrets. For example, generate each
-              secret with <code>openssl rand -hex 32</code>. Keep this file
-              private. The API hostname is also the agent’s TLS-enabled gRPC
-              endpoint on port 443.
+              Copy the template to <code>.env</code>. Set the dashboard’s public
+              HTTPS origin, the API URL, and the agent’s public gRPC address.
+              Add a database password and three independent random secrets;
+              <code> openssl rand -hex 32</code> can generate each one. Keep
+              this file private.
             </p>
             <CopyCommand command="cp .env.example .env" />
             <p className="docs-note">
@@ -544,32 +600,31 @@ function Docs() {
             <h2>START THE STACK.</h2>
             <p>
               Compose pulls the images, waits for PostgreSQL and Redis, runs
-              migrations once, then starts the backend, dashboard, landing page,
-              and HTTPS proxy. Open your dashboard hostname to create an account.
+              migrations once, then starts the backend, dashboard, and landing
+              page on local ports. Connect the reverse proxy of your choice and
+              open your dashboard hostname to create an account.
             </p>
             <CopyCommand command="docker compose --env-file .env -f compose.yml up -d" />
             <p className="docs-note">
               Check progress with <code>docker compose --env-file .env -f compose.yml ps</code>.
-              Caddy obtains trusted certificates when DNS resolves and ports 80
-              and 443 are reachable.
+              By default, the ports bind to <code>127.0.0.1</code>: dashboard
+              <code> 3000</code>, API/WebSockets <code>4000</code>, gRPC
+              <code> 50052</code>, and landing page <code>8080</code>.
             </p>
           </div>
         </article>
       </div>
       <p className="docs-scale-note">
-        Need more ingest capacity? Run <code>docker compose --env-file .env -f
-        compose.yml up -d --scale backend=3</code>. Redis shares realtime state,
-        migrations stay a one-time step, and Caddy discovers the backend
-        replicas for both WebSockets and gRPC.
+        Your proxy should terminate TLS, forward WebSocket upgrades to port
+        <code> 4000</code>, and speak HTTP/2 to the gRPC upstream on port
+        <code> 50052</code>. The API and gRPC can share a public hostname when
+        your proxy routes them separately. For backend replicas, replace the
+        sample’s fixed host port bindings with your proxy’s service discovery
+        or load balancer; Redis shares realtime state across replicas. A proxy
+        container can also join the Compose network and route to the service
+        names directly.
       </p>
-      <details className="docs-compose">
-        <summary>VIEW AND COPY THE COMPLETE COMPOSE FILE <ArrowRight size={15} /></summary>
-        <p>
-          This is the actual deployment template. Download its companion
-          <code> Caddyfile</code> and <code>.env.example</code> as shown above.
-        </p>
-        <CopyCommand command={composeExample} multiline />
-      </details>
+      <HighlightedCompose />
       <h2 id="server" className="docs-section-heading">START THE SCOPE SERVER.</h2>
       <p className="docs-section-intro">
         Prefer source checkout for local development? These steps run the
