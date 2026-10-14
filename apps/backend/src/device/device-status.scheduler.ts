@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Interval } from '@nestjs/schedule';
-import { ConfigService } from '@nestjs/config';
+import { NotificationSettingsService } from '../notifications/notification-settings.service';
 import { DeviceService } from './device.service';
 import { RedisLockService } from '../common/redis/redis-lock.service';
 
@@ -13,13 +13,13 @@ export class DeviceStatusScheduler {
 
   constructor(
     private readonly devices: DeviceService,
-    private readonly config: ConfigService,
+    private readonly settings: NotificationSettingsService,
     private readonly lock: RedisLockService,
   ) {}
 
   /**
    * Runs every 5 seconds. Marks devices offline if they have not been seen
-   * recently (OFFLINE_AFTER_SEC, default 20s).
+   * recently (global default OFFLINE_AFTER_SEC, with optional device overrides).
    *
    * The @Interval fires on every replica, so the actual sweep is guarded by a
    * Redis lock — only one instance runs it per tick, avoiding duplicate offline
@@ -32,10 +32,8 @@ export class DeviceStatusScheduler {
       DEVICE_STATUS_LOCK_KEY,
       DEVICE_STATUS_INTERVAL_MS - 1000,
       async () => {
-        const offlineAfterSec = Number(this.config.get('OFFLINE_AFTER_SEC', 20));
-        const offlineBefore = new Date(Date.now() - offlineAfterSec * 1000);
-
-        const count = await this.devices.markStaleDevicesOffline(offlineBefore);
+        const offlineAfterSec = await this.settings.offlineAfterSec();
+        const count = await this.devices.markStaleDevicesOffline(offlineAfterSec);
         if (count > 0) {
           this.logger.log(`marked offline: ${count}`);
         }

@@ -50,6 +50,7 @@ services:
       REDIS_URL: redis://redis:6379
       AGENT_JWT_SECRET: ${AGENT_JWT_SECRET:-dev-agent-secret}
       USER_JWT_SECRET: ${USER_JWT_SECRET:-dev-user-secret}
+      MFA_ENCRYPTION_SECRET: ${MFA_ENCRYPTION_SECRET:-dev-notification-secret}
       AGENT_ACCESS_TTL_SEC: ${AGENT_ACCESS_TTL_SEC:-900}
       # Must match the web origin so browser calls are allowed.
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}

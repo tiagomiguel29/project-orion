@@ -30,6 +30,7 @@ function makeController(overrides: {
     dashboardService as any,
     idempotency as any,
     agentService as any,
+    { evaluateCard: jest.fn().mockResolvedValue(undefined) } as any,
   );
   return { controller, realtime, metricsQueue, deviceService, idempotency };
 }

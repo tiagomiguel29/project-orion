@@ -36,6 +36,7 @@ import {
   Microchip,
   Container,
   Cloud,
+  Bell,
 } from "lucide-react"
 import {
   Area,
@@ -99,7 +100,7 @@ interface DevicePageProps {
 export default function DevicePage({ params }: DevicePageProps) {
   const { externalId } = use(params)
   const router = useRouter()
-  const { isAuthenticated, authState, token } = useAuth()
+  const { isAuthenticated, authState, token, user } = useAuth()
   const [range, setRange] = useState<DashboardRange>("1h")
   const [chartNowMs, setChartNowMs] = useState(Date.now)
   useEffect(() => {
@@ -208,6 +209,7 @@ export default function DevicePage({ params }: DevicePageProps) {
         </div>
 
         <div className="flex items-center gap-3">
+          {user?.role === "admin" && <button onClick={() => router.push(`/notifications?device=${encodeURIComponent(externalId)}`)} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary" aria-label="Device notifications"><Bell className="h-3.5 w-3.5" /> Alerts</button>}
           <div className="flex items-center gap-2">
             <Activity className="h-3 w-3 text-muted-foreground" />
             <span className="text-[10px] text-muted-foreground uppercase tracking-widest">{system?.status === "online" ? "Live" : "History"}</span>

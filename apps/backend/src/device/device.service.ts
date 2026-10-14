@@ -1,13 +1,15 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { DeviceEntity, DeviceStatus } from './entities/device.entity';
 import { MetricEntity } from './entities/metric.entity';
 import { EventEntity } from './entities/event.entity';
 import { RealtimeService } from '../realtime/realtime.service';
+import { NotificationEventsService } from '../notifications/notification-events.service';
 
 @Injectable()
 export class DeviceService {
+  private readonly logger = new Logger(DeviceService.name);
   constructor(
     @InjectRepository(DeviceEntity)
     private readonly devicesRepo: Repository<DeviceEntity>,
@@ -16,6 +18,7 @@ export class DeviceService {
     @InjectRepository(EventEntity)
     private readonly eventsRepo: Repository<EventEntity>,
     private readonly realtime: RealtimeService,
+    private readonly notifications: NotificationEventsService,
   ) {}
 
   async createDevice(input: {
@@ -81,7 +84,10 @@ export class DeviceService {
       ) SELECT * FROM updated
     `, [externalId, seenAt]);
     for (const row of rows) {
-      if (row.previousStatus !== 'online') this.emitStatus(row.externalId, 'online', row.lastSeenAt);
+      if (row.previousStatus !== 'online') {
+        this.emitStatus(row.externalId, 'online', row.lastSeenAt);
+        await this.recordStatus(row.externalId, 'online');
+      }
     }
   }
 
@@ -89,17 +95,23 @@ export class DeviceService {
    * Marks devices offline if lastSeenAt is too old.
    * Emits WS events only for transitions.
    */
-  async markStaleDevicesOffline(offlineBefore: Date): Promise<number> {
+  async markStaleDevicesOffline(offlineAfterSec: number): Promise<number> {
     // Check the cutoff in the UPDATE itself: an agent can reconnect while the
     // scheduler is running on another replica. Only actual transitions emit.
     const result = await this.devicesRepo.createQueryBuilder()
       .update(DeviceEntity)
       .set({ status: 'offline', statusChangedAt: new Date() })
       .where('status = :status', { status: 'online' })
-      .andWhere('"lastSeenAt" < :offlineBefore', { offlineBefore })
+      .andWhere(`"lastSeenAt" < NOW() - make_interval(secs => COALESCE(
+        (SELECT (override.config->'rules'->>'offlineAfterSec')::int FROM device_notification_settings override WHERE override."deviceId" = devices.id),
+        :offlineAfterSec
+      ))`, { offlineAfterSec })
       .returning(['externalId', 'lastSeenAt'])
       .execute();
-    for (const row of result.raw) this.emitStatus(row.externalId, 'offline', row.lastSeenAt);
+    for (const row of result.raw) {
+      this.emitStatus(row.externalId, 'offline', row.lastSeenAt);
+      await this.recordStatus(row.externalId, 'offline');
+    }
     return result.raw.length;
   }
 
@@ -140,5 +152,10 @@ export class DeviceService {
     this.realtime.emitToDevice(externalId, 'device.status', payload);
     // broadcast to dashboard subscribers
     this.realtime.emitToDashboard('device.status', payload);
+  }
+
+  private async recordStatus(externalId: string, status: 'online' | 'offline') {
+    try { await this.notifications.onStatus(externalId, status); }
+    catch (error) { this.logger.warn(`notification evaluation failed for ${externalId}: ${error instanceof Error ? error.message : error}`); }
   }
 }

@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Search, Monitor, Wifi, WifiOff, AlertTriangle, LogOut, User } from "lucide-react"
+import { Search, Monitor, Wifi, WifiOff, AlertTriangle, LogOut, User, Bell } from "lucide-react"
+import Link from "next/link"
 import type { SystemData } from "./system-card"
 import type { DashboardTotals } from "@/lib/dashboard-service"
 
@@ -18,13 +18,6 @@ interface DashboardHeaderProps {
 }
 
 export function DashboardHeader({ systems, totals, searchQuery, onSearchChange, name, email, role, onLogout, onProfileClick }: DashboardHeaderProps) {
-  const [time, setTime] = useState(new Date())
-
-  useEffect(() => {
-    const interval = setInterval(() => setTime(new Date()), 1000)
-    return () => clearInterval(interval)
-  }, [])
-
   // Use API totals when available, otherwise compute from local data
   const onlineCount = totals?.online ?? systems.filter((s) => s.status === "online").length
   const offlineCount = totals?.offline ?? systems.filter((s) => s.status === "offline").length
@@ -33,26 +26,6 @@ export function DashboardHeader({ systems, totals, searchQuery, onSearchChange, 
 
   return (
     <header className="border-b border-border bg-card/50">
-      {/* Top bar with grid coordinates */}
-      <div className="flex items-center justify-between px-4 py-1 border-b border-border/50">
-        <div className="flex items-center gap-2 text-[9px] text-muted-foreground tracking-widest">
-          <span>A</span>
-          <span className="text-border">|</span>
-          <span>B</span>
-          <span className="text-border">|</span>
-          <span>C</span>
-          <span className="text-border">|</span>
-          <span>D</span>
-          <span className="text-border">|</span>
-          <span>E</span>
-          <span className="text-border">|</span>
-          <span>F</span>
-        </div>
-        <span className="text-[9px] text-muted-foreground tabular-nums tracking-widest">
-          {time.toISOString().replace("T", " // ").split(".")[0]} UTC
-        </span>
-      </div>
-
       {/* Main header */}
       <div className="flex items-center justify-between px-4 py-3">
         <div className="flex items-center gap-4">
@@ -99,6 +72,7 @@ export function DashboardHeader({ systems, totals, searchQuery, onSearchChange, 
         </div>
 
         <div className="flex items-center gap-3">
+          {role === "admin" && <Link href="/notifications" aria-label="Notifications" title="Notifications" className="text-muted-foreground hover:text-primary transition-colors"><Bell className="h-4 w-4" /></Link>}
           {/* Search */}
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />

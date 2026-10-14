@@ -1,7 +1,7 @@
 {
   "name": "@project-orion/backend",
   "version": "0.0.1",
-  "description": "Project Orion backend service",
+  "description": "Scope backend service",
   "author": "",
   "private": true,
   "license": "MIT",
@@ -28,6 +28,7 @@
     "migration:run:prod": "typeorm -d dist/data-source.js migration:run"
   },
   "dependencies": {
+    "@aws-sdk/client-sesv2": "^3.1151.0",
     "@grpc/grpc-js": "^1.14.3",
     "@grpc/proto-loader": "^0.8.0",
     "@nestjs/common": "^11.0.1",
@@ -47,6 +48,7 @@
     "class-validator": "^0.14.3",
     "ioredis": "^5.10.1",
     "morgan": "^1.10.1",
+    "nodemailer": "^10.1.1",
     "otplib": "^13.4.0",
     "pg": "^8.18.0",
     "reflect-metadata": "^0.2.2",
@@ -64,6 +66,7 @@
     "@types/express": "^5.0.0",
     "@types/jest": "^30.0.0",
     "@types/node": "^22.10.7",
+    "@types/nodemailer": "^8.0.2",
     "@types/supertest": "^6.0.2",
     "@typescript-eslint/eslint-plugin": "^8.56.0",
     "@typescript-eslint/parser": "^8.56.0",

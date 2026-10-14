@@ -14,6 +14,7 @@ import { DeviceStatusScheduler } from './device-status.scheduler';
 import { AuthModule } from 'src/auth/auth.module';
 import { AgentModule } from 'src/agent/agent.module';
 import { DashboardService } from './dashboard/dashboard.service';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { DashboardService } from './dashboard/dashboard.service';
     ScheduleModule.forRoot(),
     AuthModule,
     AgentModule,
+    NotificationsModule,
   ],
   providers: [DeviceService, MetricsService, MetricsQueueService, DeviceStatusScheduler, DashboardService],
   controllers: [DeviceController],

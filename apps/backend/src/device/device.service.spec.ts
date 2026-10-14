@@ -12,11 +12,13 @@ describe('DeviceService', () => {
     const metricsRepo = {} as any;
     const eventsRepo = {} as any;
     const realtime = { emitToDevice: jest.fn(), emitToDashboard: jest.fn() };
+    const notifications = { onStatus: jest.fn().mockResolvedValue(undefined) };
     const service = new DeviceService(
       devicesRepo as any,
       metricsRepo,
       eventsRepo,
       realtime as any,
+      notifications as any,
     );
     return { service, devicesRepo, realtime };
   }

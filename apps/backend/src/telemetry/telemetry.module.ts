@@ -5,9 +5,10 @@ import { RealtimeModule } from 'src/realtime/realtime.module';
 import { AgentModule } from 'src/agent/agent.module';
 import { DeviceModule } from 'src/device/device.module';
 import { DashboardBroadcastService } from './dashboard-broadcast.service';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
-  imports: [AuthModule, RealtimeModule, AgentModule, DeviceModule],
+  imports: [AuthModule, RealtimeModule, AgentModule, DeviceModule, NotificationsModule],
   controllers: [TelemetryController],
   providers: [DashboardBroadcastService],
 })

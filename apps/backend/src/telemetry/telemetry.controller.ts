@@ -10,6 +10,7 @@ import { DeviceService } from 'src/device/device.service';
 import { DashboardService } from 'src/device/dashboard/dashboard.service';
 import { DashboardBroadcastService } from './dashboard-broadcast.service';
 import { IngestAck, IngestStatus, ingestAck } from './ingest-status';
+import { NotificationEventsService } from '../notifications/notification-events.service';
 
 type MetricPoint = {
   name: string;
@@ -45,6 +46,7 @@ export class TelemetryController implements OnModuleDestroy {
     private readonly dashboardService: DashboardService,
     private readonly broadcasts: DashboardBroadcastService,
     private readonly agentService: AgentService,
+    private readonly notifications: NotificationEventsService,
   ) {}
 
   /**
@@ -168,6 +170,8 @@ export class TelemetryController implements OnModuleDestroy {
       if (!await this.broadcasts.allowDashboardEmit(deviceId, this.dashboardThrottleMs)) return;
       const card = await this.dashboardService.getDeviceDashboardPayload(deviceId, '15m');
       this.realtime.emitToDashboard('dashboard.update', card);
+      try { await this.notifications.evaluateCard(card); }
+      catch (error) { this.logger.warn(`notification evaluation failed for ${deviceId}: ${error instanceof Error ? error.message : error}`); }
     } catch {
       // non-critical — dashboard subscribers will get the next update
     }
