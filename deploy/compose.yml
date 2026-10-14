@@ -1,0 +1,98 @@
+# Pulls prebuilt Scope images; no source checkout or local image build required.
+# Copy .env.example to .env, fill every required value, then:
+#   docker compose --env-file .env -f compose.yml up -d
+name: scope
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: scope
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: scope
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U scope -d scope"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+
+  migrate:
+    image: ghcr.io/tiagomiguel29/scope-backend:${SCOPE_IMAGE_TAG:-main}
+    restart: "no"
+    command: ["npm", "run", "migration:run:prod"]
+    environment:
+      DATABASE_URL: postgresql://scope:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/scope
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  backend:
+    image: ghcr.io/tiagomiguel29/scope-backend:${SCOPE_IMAGE_TAG:-main}
+    restart: unless-stopped
+    environment:
+      HTTP_PORT: 4000
+      GRPC_PORT: 50052
+      DATABASE_URL: postgresql://scope:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/scope
+      REDIS_URL: redis://redis:6379
+      REQUIRE_REDIS: "true"
+      DB_SYNCHRONIZE: "false"
+      CORS_ORIGIN: https://${SCOPE_WEB_DOMAIN:?Set SCOPE_WEB_DOMAIN in .env}
+      WEBAUTHN_ORIGIN: https://${SCOPE_WEB_DOMAIN:?Set SCOPE_WEB_DOMAIN in .env}
+      AGENT_JWT_SECRET: ${AGENT_JWT_SECRET:?Set AGENT_JWT_SECRET in .env}
+      USER_JWT_SECRET: ${USER_JWT_SECRET:?Set USER_JWT_SECRET in .env}
+      MFA_ENCRYPTION_SECRET: ${MFA_ENCRYPTION_SECRET:?Set MFA_ENCRYPTION_SECRET in .env}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+
+  web:
+    image: ghcr.io/tiagomiguel29/scope-web:${SCOPE_IMAGE_TAG:-main}
+    restart: unless-stopped
+    environment:
+      SCOPE_PUBLIC_API_URL: https://${SCOPE_API_DOMAIN:?Set SCOPE_API_DOMAIN in .env}
+      SCOPE_PUBLIC_AGENT_SERVER_ADDRESS: ${SCOPE_API_DOMAIN:?Set SCOPE_API_DOMAIN in .env}:443
+      SCOPE_PUBLIC_AGENT_TLS_DISABLE: "false"
+    depends_on:
+      - backend
+
+  landing:
+    image: ghcr.io/tiagomiguel29/scope-landing:${SCOPE_IMAGE_TAG:-main}
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      SCOPE_WEB_DOMAIN: ${SCOPE_WEB_DOMAIN:?Set SCOPE_WEB_DOMAIN in .env}
+      SCOPE_API_DOMAIN: ${SCOPE_API_DOMAIN:?Set SCOPE_API_DOMAIN in .env}
+      SCOPE_LANDING_DOMAIN: ${SCOPE_LANDING_DOMAIN:?Set SCOPE_LANDING_DOMAIN in .env}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+      - backend
+      - landing
+
+volumes:
+  postgres_data:
+  caddy_data:
+  caddy_config:

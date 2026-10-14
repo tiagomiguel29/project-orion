@@ -1,20 +1,37 @@
-# Project Orion
+# Scope
 
-This project is a real-time device monitoring platform that uses a lightweight agent to collect system telemetry, a backend to ingest and stream data, and web and iOS clients to manage devices and view live and historical system health.
+Scope is a real-time device monitoring platform that uses a lightweight agent to collect system telemetry, a backend to ingest and stream data, and a web dashboard to manage devices and view live and historical system health.
 
 The project is current in early development.
 
 ## Structure
 
 ```text
-project-orion/
+scope/
 ├── apps/
 │   ├── agent/      # Go telemetry agent
 │   ├── backend/    # NestJS API + realtime backend
-│   ├── ios/        # Native iOS client
+│   ├── ios/        # Future native iOS client
+│   ├── landing/    # React + Vite + TanStack marketing site
 │   └── web/        # Next.js dashboard
 └── package.json    # Root workspace scripts for Node apps
 ```
+
+## Deploy prebuilt images
+
+Scope publishes the backend, dashboard, and landing page as Linux x64/ARM64
+images on GitHub Container Registry. The [deployment guide](deploy/README.md)
+and [Compose example](deploy/compose.yml) use those images with PostgreSQL,
+Redis, a one-time migration, and Caddy for HTTPS and gRPC. Set three DNS names,
+fill the secrets in `deploy/.env.example`, then run:
+
+```bash
+docker compose --env-file .env -f compose.yml up -d
+```
+
+The Compose file and its companion `Caddyfile` and `.env.example` can be
+downloaded without cloning this repository. The landing page's `/docs` guide
+includes the download commands and the complete Compose file.
 
 ## Quick start
 
@@ -42,6 +59,31 @@ npm run dev:backend
 npm run agent:run
 ```
 
+## Install an agent on another machine
+
+The dashboard's **Add Device** dialog creates a 10-minute, single-use pairing
+code and a one-line install command. Set the backend HTTPS URL and gRPC address
+to endpoints reachable from the target machine, then run the command there.
+The installer downloads the matching Linux or macOS release binary, verifies its
+SHA-256 checksum, redeems the pairing code, and starts the agent with systemd
+or launchd. It stores the enrollment token in `/etc/scope/.env` with mode `0600`
+and the durable telemetry buffer in `/var/lib/scope/wal.db`.
+If the code expires, open that device and select **Install agent** to create a
+fresh one without deleting its telemetry history.
+
+The [v0.1.0 agent release](https://github.com/tiagomiguel29/project-orion/releases/tag/v0.1.0)
+contains four Linux/macOS x64/ARM64 archives, checksums, and `install.sh`. The
+dashboard generates the complete command with a fresh pairing code.
+
+For local development, the backend uses `localhost:4000` and plaintext gRPC on
+`localhost:50052`. These addresses only work when the agent runs on the same
+machine. Public deployments should use HTTPS for pairing and trusted TLS for
+gRPC; the installer rejects plaintext outside localhost.
+
+Run `FLOW_PASSWORD=… node scripts/verify-agent-install.mjs` against a disposable
+development stack to test download, checksum verification, one-time pairing,
+and live telemetry from the installed binary without touching system services.
+
 ## Test / development environment (Docker)
 
 Bring up the whole stack — Postgres, Redis, the backend (HTTP + gRPC) and the web
@@ -66,13 +108,13 @@ can be overridden via environment variables:
 | `WEB_PORT` | `3000` | Web dashboard host port |
 | `HTTP_PORT` | `4000` | Backend HTTP host port |
 | `GRPC_PORT` | `50052` | Backend gRPC host port |
-| `NEXT_PUBLIC_API_URL` | `http://localhost:4000` | API URL baked into the web build |
+| `NEXT_PUBLIC_API_URL` | `http://localhost:4000` | Browser API URL served by runtime config in the dev stack |
 | `CORS_ORIGIN` | `http://localhost:3000` | Allowed browser origin |
 | `AGENT_JWT_SECRET`, `USER_JWT_SECRET` | dev defaults | Token signing secrets |
 
-> `NEXT_PUBLIC_API_URL` is inlined into the web bundle at **build time**. If you
-> change `HTTP_PORT`, rebuild the web image with a matching value, e.g.
-> `HTTP_PORT=4001 NEXT_PUBLIC_API_URL=http://localhost:4001 docker compose -f docker-compose.dev.yml up --build`.
+The dashboard image reads its browser-facing API and agent addresses at runtime.
+Set `NEXT_PUBLIC_API_URL` to the browser-reachable HTTP address when overriding
+`HTTP_PORT` in the development Compose file.
 
 Tear everything down (including the database volume):
 
@@ -80,8 +122,7 @@ Tear everything down (including the database volume):
 docker compose -f docker-compose.dev.yml down -v
 ```
 
-> The TLS / reverse-proxy (Caddy) deployment used by the agent over the public
-> internet lives in `apps/backend/docker-compose.yml`.
+> The image-based HTTPS deployment lives in `deploy/compose.yml`.
 
 ### Verify the complete local flow
 
@@ -100,9 +141,9 @@ override the default local endpoints; `FLOW_AGENT_BINARY` can point to a
 prebuilt agent instead of running it through Go.
 
 The device dialog generates agent instructions for the development stack's
-published gRPC port. For custom deployments, set
-`NEXT_PUBLIC_AGENT_SERVER_ADDRESS` and `NEXT_PUBLIC_AGENT_TLS_DISABLE` before
-building the web app. Use plaintext only for local development. Run the endpoint
+published gRPC port. For image deployments, set `SCOPE_PUBLIC_API_URL`,
+`SCOPE_PUBLIC_AGENT_SERVER_ADDRESS`, and `SCOPE_PUBLIC_AGENT_TLS_DISABLE` on the
+web container. Use plaintext only for local development. Run the endpoint
 regression checks with `node --experimental-strip-types --test scripts/agent-config.test.mjs`.
 
 ## Environment files
@@ -126,3 +167,9 @@ npm run agent:docker
 See [the verification report](docs/live-metrics.md) for the complete ingestion,
 persistence, Redis, WebSocket and chart flow; per-range point budgets; repeatable
 three-replica/failure tests; and retention/capacity limits.
+
+## Landing page
+
+Run `npm run dev:landing` to open the standalone marketing site at
+http://localhost:5173. Build with `npm run build:landing`. See
+[the landing app guide](apps/landing/README.md) for deployment details.

@@ -6,7 +6,8 @@
   "license": "MIT",
   "workspaces": [
     "apps/backend",
-    "apps/web"
+    "apps/web",
+    "apps/landing"
   ],
   "packageManager": "npm@11.5.2",
   "engines": {
@@ -30,6 +31,9 @@
     "dev:backend": "npm run dev --workspace @project-orion/backend",
     "backend:docker": "docker compose -f apps/backend/docker-compose.yml up --build",
     "agent:run": "cd apps/agent && go run ./cmd/agent",
-    "agent:docker": "cd apps/agent && docker compose up --build"
+    "agent:docker": "cd apps/agent && docker compose up --build",
+    "dev:landing": "npm run dev --workspace @project-orion/landing",
+    "build:landing": "npm run build --workspace @project-orion/landing",
+    "typecheck:landing": "npm run typecheck --workspace @project-orion/landing"
   }
 }

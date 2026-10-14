@@ -1,0 +1,27 @@
+{$SCOPE_WEB_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy web:3000
+}
+
+{$SCOPE_API_DOMAIN} {
+	encode zstd gzip
+	@grpc header Content-Type application/grpc*
+	reverse_proxy @grpc {
+		dynamic a backend 50052 {
+			refresh 10s
+		}
+		transport http {
+			versions h2c
+		}
+	}
+	reverse_proxy {
+		dynamic a backend 4000 {
+			refresh 10s
+		}
+	}
+}
+
+{$SCOPE_LANDING_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy landing:80
+}

@@ -17,6 +17,7 @@ import { useAuth } from "@/components/auth-provider"
 import { createDevice, createPairingCode } from "@/lib/dashboard-service"
 import { cn } from "@/lib/utils"
 import { getAgentConnection, getAgentInstallCommand } from "@/lib/agent-config"
+import { getRuntimeConfig } from "@/lib/runtime-config"
 
 interface AddDeviceDialogProps {
   onDeviceCreated?: () => void
@@ -38,11 +39,12 @@ export function AddDeviceDialog({ onDeviceCreated, existingDeviceId }: AddDevice
   const [agentToken, setAgentToken] = useState("")
   const [pairingCode, setPairingCode] = useState("")
   const [copiedKey, setCopiedKey] = useState<string | null>(null)
-  const defaultApiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000"
+  const runtimeConfig = getRuntimeConfig()
+  const defaultApiUrl = runtimeConfig.apiUrl
   const defaultConnection = getAgentConnection(
     defaultApiUrl,
-    process.env.NEXT_PUBLIC_AGENT_SERVER_ADDRESS,
-    process.env.NEXT_PUBLIC_AGENT_TLS_DISABLE,
+    runtimeConfig.agentServerAddress,
+    runtimeConfig.agentTlsDisable,
   )
   const [backendUrl, setBackendUrl] = useState(defaultApiUrl)
   const [agentAddress, setAgentAddress] = useState(defaultConnection.address)

@@ -1,6 +1,6 @@
 import axios, { type AxiosError } from "axios"
+import { getRuntimeConfig } from "@/lib/runtime-config"
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000"
 
 // ── Types matching NestJS DTOs ──────────────────────────────────────
 
@@ -103,8 +103,11 @@ interface BaseResponse<T> {
 // ── Axios instance ──────────────────────────────────────────────────
 
 const api = axios.create({
-  baseURL: API_URL,
   headers: { "Content-Type": "application/json" },
+})
+api.interceptors.request.use((request) => {
+  request.baseURL = getRuntimeConfig().apiUrl
+  return request
 })
 
 function extractError(err: unknown): string {

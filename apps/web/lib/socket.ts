@@ -1,8 +1,7 @@
 import { io, type Socket } from "socket.io-client"
+import { getRuntimeConfig } from "@/lib/runtime-config"
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000"
-
-export function createSocket(token: string, url = API_URL): Socket {
+export function createSocket(token: string, url = getRuntimeConfig().apiUrl): Socket {
   const socket = io(url, {
     auth: { token },
     transports: ["websocket"],

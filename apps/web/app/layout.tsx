@@ -1,12 +1,9 @@
 import type { Metadata, Viewport } from 'next'
-import { Geist_Mono, JetBrains_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { AuthProvider } from '@/components/auth-provider'
 import { SocketProvider } from '@/components/socket-provider'
+import { RuntimeConfigGate } from '@/components/runtime-config-gate'
 import './globals.css'
-
-const _geistMono = Geist_Mono({ subsets: ["latin"] });
-const _jetbrainsMono = JetBrains_Mono({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: 'SCOPE // System Monitor',
@@ -33,11 +30,13 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="font-mono antialiased">
-        <AuthProvider>
-          <SocketProvider>
-            {children}
-          </SocketProvider>
-        </AuthProvider>
+        <RuntimeConfigGate>
+          <AuthProvider>
+            <SocketProvider>
+              {children}
+            </SocketProvider>
+          </AuthProvider>
+        </RuntimeConfigGate>
         <Analytics />
       </body>
     </html>

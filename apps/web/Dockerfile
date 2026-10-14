@@ -1,7 +1,6 @@
 # Next.js web dashboard image. Build context must be the repository ROOT (npm
-# workspace monorepo). NEXT_PUBLIC_API_URL is baked in at build time because
-# it is inlined into the client bundle, so it must point at the URL the browser
-# uses to reach the backend (the host-published port, not the compose network).
+# workspace monorepo). Browser connection settings are served by the dynamic
+# /runtime-config endpoint, so this image can be reused at any deployment URL.
 
 FROM node:22 AS build
 WORKDIR /repo
@@ -9,20 +8,16 @@ WORKDIR /repo
 COPY package.json package-lock.json ./
 COPY apps/backend/package.json apps/backend/
 COPY apps/web/package.json apps/web/
+COPY apps/landing/package.json apps/landing/
 RUN npm ci
 
 COPY apps/web apps/web
 
-ARG NEXT_PUBLIC_API_URL=http://localhost:4000
-ARG NEXT_PUBLIC_AGENT_SERVER_ADDRESS
-ARG NEXT_PUBLIC_AGENT_TLS_DISABLE
-ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
-ENV NEXT_PUBLIC_AGENT_SERVER_ADDRESS=$NEXT_PUBLIC_AGENT_SERVER_ADDRESS
-ENV NEXT_PUBLIC_AGENT_TLS_DISABLE=$NEXT_PUBLIC_AGENT_TLS_DISABLE
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build --workspace @project-orion/web
 
 FROM node:22-slim AS runtime
+LABEL org.opencontainers.image.source="https://github.com/tiagomiguel29/project-orion"
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 WORKDIR /repo
