@@ -29,7 +29,7 @@ services:
       retries: 15
 
   migrate:
-    image: ghcr.io/tiagomiguel29/scope-backend:${SCOPE_IMAGE_TAG:-main}
+    image: tiagomiguel29/scope-backend:${SCOPE_IMAGE_TAG:-main}
     restart: "no"
     command: ["npm", "run", "migration:run:prod"]
     environment:
@@ -39,7 +39,7 @@ services:
         condition: service_healthy
 
   backend:
-    image: ghcr.io/tiagomiguel29/scope-backend:${SCOPE_IMAGE_TAG:-main}
+    image: tiagomiguel29/scope-backend:${SCOPE_IMAGE_TAG:-main}
     restart: unless-stopped
     environment:
       HTTP_PORT: 4000
@@ -60,7 +60,7 @@ services:
         condition: service_healthy
 
   web:
-    image: ghcr.io/tiagomiguel29/scope-web:${SCOPE_IMAGE_TAG:-main}
+    image: tiagomiguel29/scope-web:${SCOPE_IMAGE_TAG:-main}
     restart: unless-stopped
     environment:
       SCOPE_PUBLIC_API_URL: https://${SCOPE_API_DOMAIN:?Set SCOPE_API_DOMAIN in .env}
@@ -70,7 +70,7 @@ services:
       - backend
 
   landing:
-    image: ghcr.io/tiagomiguel29/scope-landing:${SCOPE_IMAGE_TAG:-main}
+    image: tiagomiguel29/scope-landing:${SCOPE_IMAGE_TAG:-main}
     restart: unless-stopped
 
   caddy:

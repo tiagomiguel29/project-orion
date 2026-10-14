@@ -20,7 +20,7 @@ scope/
 ## Deploy prebuilt images
 
 Scope publishes the backend, dashboard, and landing page as Linux x64/ARM64
-images on GitHub Container Registry. The [deployment guide](deploy/README.md)
+images on Docker Hub. The [deployment guide](deploy/README.md)
 and [Compose example](deploy/compose.yml) use those images with PostgreSQL,
 Redis, a one-time migration, and Caddy for HTTPS and gRPC. Set three DNS names,
 fill the secrets in `deploy/.env.example`, then run:

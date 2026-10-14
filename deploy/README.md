@@ -1,7 +1,7 @@
 # Deploy Scope from container images
 
 The [Compose example](compose.yml) pulls `scope-backend`, `scope-web`, and
-`scope-landing` from GitHub Container Registry. Only PostgreSQL, Redis, and
+`scope-landing` from Docker Hub under `tiagomiguel29`. PostgreSQL, Redis, and
 Caddy come from their upstream registries. The web image reads its browser API
 and agent defaults from runtime environment variables, so it does not need to
 be rebuilt for each domain.
@@ -38,3 +38,6 @@ The landing page is at `https://<SCOPE_LANDING_DOMAIN>`.
 `SCOPE_IMAGE_TAG=main` follows the latest successful main-branch build. Use a
 published version tag or image digest for predictable production upgrades.
 The registry workflow is [container-images.yml](../.github/workflows/container-images.yml).
+Publishing requires the repository's `DOCKERHUB_TOKEN` Actions secret, set to a
+Docker Hub personal access token with Repo Read & Write permission for the
+`tiagomiguel29` account.

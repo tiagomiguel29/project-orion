@@ -500,7 +500,7 @@ function Docs() {
       <h2 id="deploy" className="docs-section-heading">DEPLOY FROM IMAGES.</h2>
       <p className="docs-section-intro">
         Scope publishes <code>scope-backend</code>, <code>scope-web</code>, and
-        <code> scope-landing</code> on GitHub Container Registry for Linux x64
+        <code> scope-landing</code> on Docker Hub under <code>tiagomiguel29</code> for Linux x64
         and ARM64. The example below adds PostgreSQL, Redis, a one-time database
         migration, and Caddy for HTTPS, gRPC, and WebSockets. You’ll need Docker
         Compose, open ports 80 and 443, and three DNS names pointing to the host.
