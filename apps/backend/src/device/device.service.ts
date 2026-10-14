@@ -43,6 +43,12 @@ export class DeviceService {
     return this.devicesRepo.save(device);
   }
 
+  async getActiveDevice(externalId: string): Promise<DeviceEntity> {
+    const device = await this.devicesRepo.findOne({ where: { externalId, isActive: true } });
+    if (!device) throw new NotFoundException(`Device ${externalId} not found`);
+    return device;
+  }
+
   async updateDeviceInfo(externalId: string, info: {
     hostname?: string;
     os?: string;

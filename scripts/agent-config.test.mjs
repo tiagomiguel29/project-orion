@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { getAgentConnection } from '../apps/web/lib/agent-config.ts';
+import { getAgentConnection, getAgentInstallCommand } from '../apps/web/lib/agent-config.ts';
 
 test('local development uses the plaintext gRPC port', () => {
   for (const host of ['localhost', '127.0.0.1', '[::1]']) {
@@ -24,4 +24,15 @@ test('custom endpoints require an explicit plaintext setting', () => {
   });
   assert.equal(getAgentConnection('http://localhost:4000', 'server.example.com:443').tlsDisable, false);
   assert.equal(getAgentConnection('http://localhost:4000', undefined, 'false').tlsDisable, false);
+});
+
+test('install command quotes every dynamic argument and adds plaintext only when selected', () => {
+  const command = getAgentInstallCommand({
+    backendUrl: " https://scope.example.com/ ", grpcAddress: 'scope.example.com:443',
+    deviceId: "dev'one", pairingCode: 'a'.repeat(32), tlsDisable: false,
+  });
+  assert(command.includes("--server 'https://scope.example.com'"));
+  assert(command.includes("--device 'dev'\\''one'"));
+  assert(!command.includes('--tls-disable'));
+  assert(getAgentInstallCommand({ backendUrl: 'http://localhost:4000', grpcAddress: 'localhost:50052', deviceId: 'dev-1', pairingCode: 'a'.repeat(32), tlsDisable: true }).endsWith('--tls-disable'));
 });

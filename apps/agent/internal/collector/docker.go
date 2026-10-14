@@ -71,8 +71,8 @@ type dockerAPIContainer struct {
 // dockerOneShot is the response from /containers/{id}/stats?stream=false&one-shot=true
 // It returns memory and network instantly but only one CPU snapshot (no delta).
 type dockerOneShot struct {
-	CPUStats    dockerCPUStats               `json:"cpu_stats"`
-	MemoryStats dockerMemoryStats            `json:"memory_stats"`
+	CPUStats    dockerCPUStats                `json:"cpu_stats"`
+	MemoryStats dockerMemoryStats             `json:"memory_stats"`
 	Networks    map[string]dockerNetworkStats `json:"networks"`
 }
 
@@ -292,10 +292,10 @@ func collectDockerContainers() ([]*telemetry.DockerContainer, error) {
 func deriveHealth(state, status string) string {
 	statusLower := strings.ToLower(status)
 	switch {
-	case strings.Contains(statusLower, "healthy"):
-		return "healthy"
 	case strings.Contains(statusLower, "unhealthy"):
 		return "unhealthy"
+	case strings.Contains(statusLower, "healthy"):
+		return "healthy"
 	case strings.Contains(statusLower, "starting"):
 		return "starting"
 	case state == "running":

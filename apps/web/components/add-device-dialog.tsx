@@ -14,37 +14,52 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useAuth } from "@/components/auth-provider"
-import { createDevice } from "@/lib/dashboard-service"
+import { createDevice, createPairingCode } from "@/lib/dashboard-service"
 import { cn } from "@/lib/utils"
-import { getAgentConnection } from "@/lib/agent-config"
+import { getAgentConnection, getAgentInstallCommand } from "@/lib/agent-config"
 
 interface AddDeviceDialogProps {
   onDeviceCreated?: () => void
+  existingDeviceId?: string
 }
 
-export function AddDeviceDialog({ onDeviceCreated }: AddDeviceDialogProps) {
+export function AddDeviceDialog({ onDeviceCreated, existingDeviceId }: AddDeviceDialogProps) {
   const { token } = useAuth()
   const [open, setOpen] = useState(false)
   const [step, setStep] = useState<"form" | "result">("form")
 
   // Form state
-  const [externalId, setExternalId] = useState("")
+  const [externalId, setExternalId] = useState(existingDeviceId ?? "")
   const [hostname, setHostname] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
 
   // Result state
   const [agentToken, setAgentToken] = useState("")
+  const [pairingCode, setPairingCode] = useState("")
   const [copiedKey, setCopiedKey] = useState<string | null>(null)
+  const defaultApiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000"
+  const defaultConnection = getAgentConnection(
+    defaultApiUrl,
+    process.env.NEXT_PUBLIC_AGENT_SERVER_ADDRESS,
+    process.env.NEXT_PUBLIC_AGENT_TLS_DISABLE,
+  )
+  const [backendUrl, setBackendUrl] = useState(defaultApiUrl)
+  const [agentAddress, setAgentAddress] = useState(defaultConnection.address)
+  const [tlsDisable, setTlsDisable] = useState(defaultConnection.tlsDisable)
 
   function reset() {
     setStep("form")
-    setExternalId("")
+    setExternalId(existingDeviceId ?? "")
     setHostname("")
     setError("")
     setLoading(false)
     setAgentToken("")
+    setPairingCode("")
     setCopiedKey(null)
+    setBackendUrl(defaultApiUrl)
+    setAgentAddress(defaultConnection.address)
+    setTlsDisable(defaultConnection.tlsDisable)
   }
 
   function handleOpenChange(next: boolean) {
@@ -57,8 +72,8 @@ export function AddDeviceDialog({ onDeviceCreated }: AddDeviceDialogProps) {
     if (!token) return
 
     const trimmedId = externalId.trim()
-    if (trimmedId.length < 3) {
-      setError("Device ID must be at least 3 characters")
+    if (!/^[A-Za-z0-9][A-Za-z0-9._-]{2,63}$/.test(trimmedId)) {
+      setError("Use 3–64 letters, numbers, dots, underscores or hyphens for the device ID")
       return
     }
 
@@ -66,13 +81,13 @@ export function AddDeviceDialog({ onDeviceCreated }: AddDeviceDialogProps) {
     setLoading(true)
 
     try {
-      const result = await createDevice(token, {
-        externalId: trimmedId,
-        hostname: hostname.trim() || undefined,
-      })
+      const result = existingDeviceId
+        ? await createPairingCode(token, existingDeviceId)
+        : await createDevice(token, { externalId: trimmedId, hostname: hostname.trim() || undefined })
       setAgentToken(result.token)
+      setPairingCode(result.pairingCode)
       setStep("result")
-      onDeviceCreated?.()
+      if (!existingDeviceId) onDeviceCreated?.()
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create device")
     } finally {
@@ -86,49 +101,26 @@ export function AddDeviceDialog({ onDeviceCreated }: AddDeviceDialogProps) {
     setTimeout(() => setCopiedKey(null), 2000)
   }
 
-  const agentConnection = getAgentConnection(
-    process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000",
-    process.env.NEXT_PUBLIC_AGENT_SERVER_ADDRESS,
-    process.env.NEXT_PUBLIC_AGENT_TLS_DISABLE,
-  )
-  const agentServerAddress = agentConnection.address
-  const tlsSetting = agentConnection.tlsDisable
-    ? "AGENT_TLS_DISABLE=true"
-    : "AGENT_TLS_INSECURE_SKIP_VERIFY=true"
+  const normalizedBackendUrl = backendUrl.trim().replace(/\/+$/, "")
+  const normalizedAgentAddress = agentAddress.trim()
+  const installCommand = getAgentInstallCommand({ backendUrl: normalizedBackendUrl, grpcAddress: normalizedAgentAddress, deviceId: externalId, pairingCode, tlsDisable })
 
   const envVars = [
     `AGENT_DEVICE_ID=${externalId.trim()}`,
     `AGENT_ENROLLMENT_TOKEN=${agentToken}`,
-    `AGENT_SERVER_ADDRESS=${agentServerAddress}`,
-    tlsSetting,
+    `AGENT_SERVER_ADDRESS=${normalizedAgentAddress}`,
+    `AGENT_TLS_DISABLE=${tlsDisable}`,
   ].join("\n")
-
-  // One-liner mirroring apps/agent/docker-compose.yaml — deploy the agent on a
-  // target machine with a single copy-paste.
-  const deployCommand = [
-    "docker run -d --name project-orion-agent --restart unless-stopped",
-    "  --privileged --network host --pid host --read-only --tmpfs /tmp",
-    `  -e AGENT_DEVICE_ID=${externalId.trim()}`,
-    `  -e AGENT_ENROLLMENT_TOKEN=${agentToken}`,
-    `  -e AGENT_SERVER_ADDRESS=${agentServerAddress}`,
-    `  -e ${tlsSetting}`,
-    "  -e HOST_PROC=/host/proc -e HOST_SYS=/host/sys -e HOST_ETC=/host/etc",
-    "  -e AGENT_DISK_PATH=/host -e AGENT_WAL_PATH=/var/lib/orion-agent/wal.db",
-    "  -v /var/run/docker.sock:/var/run/docker.sock:ro",
-    "  -v /proc:/host/proc:ro -v /sys:/host/sys:ro -v /etc:/host/etc:ro -v /:/host:ro",
-    "  -v orion-agent-wal:/var/lib/orion-agent",
-    "  ghcr.io/tiagomiguel29/project-orion-agent:latest",
-  ].join(" \\\n")
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <button
           className="flex items-center gap-1.5 px-2 py-1 text-[10px] uppercase tracking-widest text-muted-foreground hover:text-primary border border-border hover:border-primary/50 bg-card/50 transition-colors"
-          aria-label="Add device"
+          aria-label={existingDeviceId ? "Install agent" : "Add device"}
         >
-          <Plus className="h-3 w-3" />
-          Add Device
+          {existingDeviceId ? <Terminal className="h-3 w-3" /> : <Plus className="h-3 w-3" />}
+          {existingDeviceId ? "Install agent" : "Add Device"}
         </button>
       </DialogTrigger>
 
@@ -138,10 +130,10 @@ export function AddDeviceDialog({ onDeviceCreated }: AddDeviceDialogProps) {
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2 text-sm uppercase tracking-widest">
                 <Monitor className="h-4 w-4 text-primary" />
-                Register Device
+                {existingDeviceId ? "Install Agent" : "Register Device"}
               </DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground">
-                Create a new device and get an agent enrollment token for it.
+                {existingDeviceId ? "Generate a fresh one-time install command for this device." : "Create a new device and get an agent enrollment token for it."}
               </DialogDescription>
             </DialogHeader>
 
@@ -159,13 +151,12 @@ export function AddDeviceDialog({ onDeviceCreated }: AddDeviceDialogProps) {
                   autoFocus
                   required
                   minLength={3}
+                  disabled={Boolean(existingDeviceId)}
                 />
-                <p className="text-[10px] text-muted-foreground">
-                  Unique identifier for the agent. Min 3 characters.
-                </p>
+                <p className="text-[10px] text-muted-foreground">3–64 letters, numbers, dots, underscores or hyphens.</p>
               </div>
 
-              <div className="space-y-2">
+              {!existingDeviceId && <div className="space-y-2">
                 <Label htmlFor="hostname" className="text-[10px] uppercase tracking-widest text-muted-foreground">
                   Hostname <span className="text-muted-foreground/50">(optional)</span>
                 </Label>
@@ -176,7 +167,7 @@ export function AddDeviceDialog({ onDeviceCreated }: AddDeviceDialogProps) {
                   placeholder="e.g. my-server.local"
                   className="bg-background border-border text-sm font-mono"
                 />
-              </div>
+              </div>}
 
               {error && (
                 <p className="text-[10px] text-destructive uppercase tracking-wider">{error}</p>
@@ -198,7 +189,7 @@ export function AddDeviceDialog({ onDeviceCreated }: AddDeviceDialogProps) {
                   disabled={loading}
                   className="text-[10px] uppercase tracking-widest"
                 >
-                  {loading ? "Creating..." : "Create Device"}
+                  {loading ? "Preparing..." : existingDeviceId ? "Generate Command" : "Create Device"}
                 </Button>
               </div>
             </form>
@@ -208,52 +199,38 @@ export function AddDeviceDialog({ onDeviceCreated }: AddDeviceDialogProps) {
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2 text-sm uppercase tracking-widest">
                 <Check className="h-4 w-4 text-[#4ade80]" />
-                Device Created
+                {existingDeviceId ? "Install Command Ready" : "Device Created"}
               </DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground">
-                Use this enrollment token to configure the agent. It will not be shown again.
+                Install the agent with one command on the machine you want to monitor.
               </DialogDescription>
             </DialogHeader>
 
             <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
               <div className="space-y-2">
                 <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                  Agent Enrollment Token
-                </Label>
-                <div className="relative">
-                  <pre className="bg-background border border-border p-3 pr-10 text-[11px] font-mono text-foreground break-all whitespace-pre-wrap max-h-24 overflow-y-auto">
-                    {agentToken}
-                  </pre>
-                  <button
-                    onClick={() => copy(agentToken, "token")}
-                    className="absolute top-2 right-2 p-1.5 border border-border bg-card hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
-                    aria-label="Copy enrollment token"
-                  >
-                    {copiedKey === "token" ? (
-                      <Check className="h-3 w-3 text-[#4ade80]" />
-                    ) : (
-                      <Copy className="h-3 w-3" />
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">
                   <Rocket className="h-3 w-3 inline mr-1" />
-                  One-Click Deploy (Docker)
+                  Install Scope agent
                 </Label>
                 <p className="text-[10px] text-muted-foreground">
-                  Run on the target machine — Docker required. Buffers locally and reconnects on its own.
+                  Linux or macOS. The pairing code expires in 10 minutes and works once. No repository clone or Go installation is needed.
                 </p>
+                <Label htmlFor="agent-api-url" className="text-[10px] uppercase tracking-widest text-muted-foreground">Backend URL reachable from the target machine</Label>
+                <Input id="agent-api-url" value={backendUrl} onChange={e => setBackendUrl(e.target.value)} className="bg-background border-border text-xs font-mono" />
+                <Label htmlFor="agent-grpc-address" className="text-[10px] uppercase tracking-widest text-muted-foreground">Agent gRPC address</Label>
+                <Input id="agent-grpc-address" value={agentAddress} onChange={e => setAgentAddress(e.target.value)} className="bg-background border-border text-xs font-mono" />
+                <label className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                  <input type="checkbox" checked={tlsDisable} onChange={e => setTlsDisable(e.target.checked)} />
+                  Localhost plaintext gRPC (development only)
+                </label>
                 <div className="relative">
                   <pre className="bg-background border border-border p-3 pr-10 text-[11px] font-mono text-muted-foreground whitespace-pre-wrap break-all max-h-48 overflow-y-auto">
-                    {deployCommand}
+                    {installCommand}
                   </pre>
                   <button
-                    onClick={() => copy(deployCommand, "deploy")}
+                    onClick={() => copy(installCommand, "deploy")}
                     className="absolute top-2 right-2 p-1.5 border border-border bg-card hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
-                    aria-label="Copy deploy command"
+                    aria-label="Copy install command"
                   >
                     {copiedKey === "deploy" ? (
                       <Check className="h-3 w-3 text-[#4ade80]" />
@@ -262,13 +239,14 @@ export function AddDeviceDialog({ onDeviceCreated }: AddDeviceDialogProps) {
                     )}
                   </button>
                 </div>
+                <p className="text-[10px] text-muted-foreground/70">For another machine, replace localhost with the backend’s reachable HTTPS and gRPC addresses before copying.</p>
               </div>
 
               <div className="space-y-2">
                 <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                  <Terminal className="h-3 w-3 inline mr-1" />
-                  Or set environment variables
+                  <Terminal className="h-3 w-3 inline mr-1" /> Manual configuration
                 </Label>
+                <p className="text-[10px] text-muted-foreground">The enrollment token is shown only here. Store it securely if you configure the agent manually.</p>
                 <div className="relative">
                   <pre className={cn(
                     "bg-background border border-border p-3 pr-10 text-[11px] font-mono text-muted-foreground whitespace-pre-wrap break-all overflow-x-hidden"
@@ -288,9 +266,7 @@ export function AddDeviceDialog({ onDeviceCreated }: AddDeviceDialogProps) {
                   </button>
                 </div>
                 <p className="text-[10px] text-muted-foreground/70">
-                  {agentConnection.tlsDisable
-                    ? "Local development connection. Use the backend machine's reachable address when deploying to another machine."
-                    : <>Drop <span className="font-mono">AGENT_TLS_INSECURE_SKIP_VERIFY</span> once the backend uses a trusted certificate.</>}
+                  The agent requires a trusted TLS certificate outside localhost.
                 </p>
               </div>
 

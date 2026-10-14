@@ -5,6 +5,7 @@ import useSWR from "swr"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/components/auth-provider"
 import { DeleteDeviceDialog } from "@/components/delete-device-dialog"
+import { AddDeviceDialog } from "@/components/add-device-dialog"
 import { fetchDevice } from "@/lib/dashboard-service"
 import { useRealtimeDevice } from "@/hooks/use-realtime-device"
 import {
@@ -44,7 +45,6 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  type TooltipProps,
 } from "recharts"
 
 const TOOLTIP_STYLE = {
@@ -210,10 +210,11 @@ export default function DevicePage({ params }: DevicePageProps) {
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
             <Activity className="h-3 w-3 text-muted-foreground" />
-            <span className="text-[10px] text-muted-foreground uppercase tracking-widest">Live</span>
-            <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+            <span className="text-[10px] text-muted-foreground uppercase tracking-widest">{system?.status === "online" ? "Live" : "History"}</span>
+            {system?.status === "online" && <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />}
           </div>
           <div className="h-4 w-px bg-border" />
+          <AddDeviceDialog existingDeviceId={externalId} />
           <DeleteDeviceDialog
             externalId={externalId}
             hostname={system?.hostname}

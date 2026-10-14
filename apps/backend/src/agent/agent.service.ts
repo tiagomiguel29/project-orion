@@ -1,7 +1,8 @@
-import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
+import { Inject, Injectable, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { Redis } from 'ioredis';
+import { createHash, randomBytes } from 'node:crypto';
 
 import { REDIS_CLIENT } from '../common/redis/redis.constants';
 
@@ -36,6 +37,7 @@ export type TokenExchangeResult = {
 @Injectable()
 export class AgentService {
   private readonly accessTtlSec: number;
+  private static readonly PAIRING_TTL_SEC = 10 * 60;
 
   constructor(
     @Inject(AGENT_JWT) private readonly jwt: JwtService,
@@ -49,6 +51,40 @@ export class AgentService {
   mintEnrollment(deviceId: string): string {
     const payload: AgentJwtPayload = { sub: deviceId, scope: 'enroll' };
     return this.jwt.sign(payload);
+  }
+
+  /** Short-lived, single-use code shared by all backend replicas via Redis. */
+  async createPairingCode(deviceId: string): Promise<string> {
+    if (!this.redis) throw new ServiceUnavailableException('Pairing requires Redis');
+    const code = randomBytes(24).toString('base64url');
+    // One active code per device. Issuing a new code invalidates the old one.
+    await this.redis.set(this.pairingKey(deviceId), this.hashPairingCode(code), 'EX', AgentService.PAIRING_TTL_SEC);
+    return code;
+  }
+
+  async redeemPairingCode(code: string, deviceId: string): Promise<string> {
+    if (!this.redis) throw new ServiceUnavailableException('Pairing requires Redis');
+    if (await this.isRevoked(deviceId)) {
+      throw new UnauthorizedException('Invalid or expired pairing code');
+    }
+    // Compare-and-delete is atomic across replicas and does not consume a
+    // valid code when someone supplies the wrong device ID or code.
+    const matched = await this.redis.eval(
+      "if redis.call('GET', KEYS[1]) == ARGV[1] then return redis.call('DEL', KEYS[1]) else return 0 end",
+      1, this.pairingKey(deviceId), this.hashPairingCode(code),
+    );
+    if (matched !== 1) {
+      throw new UnauthorizedException('Invalid or expired pairing code');
+    }
+    return this.mintEnrollment(deviceId);
+  }
+
+  private pairingKey(deviceId: string): string {
+    return `agent:pair:device:${deviceId}`;
+  }
+
+  private hashPairingCode(code: string): string {
+    return createHash('sha256').update(code).digest('hex');
   }
 
   /** Short-lived access token used for ingestion. */

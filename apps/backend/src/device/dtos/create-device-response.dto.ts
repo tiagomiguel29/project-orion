@@ -6,6 +6,9 @@ export class CreateDeviceResponseDto {
   token: string;
 
   @Expose()
+  pairingCode: string;
+
+  @Expose()
   @Type(() => DeviceDto)
   device: DeviceDto;
 }

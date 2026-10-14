@@ -20,61 +20,118 @@ type cloudflaredCredentials struct {
 	TunnelName string `json:"TunnelName"`
 }
 
-// discoverCloudflaredMetricsURL checks if cloudflared is running and returns
-// its Prometheus metrics URL. It inspects process command-line args for
-// --metrics to find the configured address, falling back to localhost:2000.
-// Returns "" if cloudflared is not running.
-func discoverCloudflaredMetricsURL() string {
+// discoverCloudflaredMetricsURLs checks running cloudflared processes and returns
+// their metrics URLs. Separate processes may serve separate tunnels.
+func discoverCloudflaredMetricsURLs() []string {
 	procs, err := process.Processes()
 	if err != nil {
-		return ""
+		return nil
 	}
 
+	urls := make(map[string]struct{})
+	needsDefaultProbe := false
 	for _, p := range procs {
 		name, err := p.Name()
 		if err != nil || name != "cloudflared" {
 			continue
 		}
 
-		// cloudflared is running — check for --metrics flag
 		cmdline, err := p.CmdlineSlice()
 		if err != nil {
-			// Process exists but can't read args — use default
-			return "http://localhost:2000/metrics"
+			needsDefaultProbe = true
+			continue
 		}
 
+		found := false
 		for i, arg := range cmdline {
 			// Handles: --metrics localhost:3456 or --metrics=localhost:3456
 			if arg == "--metrics" && i+1 < len(cmdline) {
-				return fmt.Sprintf("http://%s/metrics", cmdline[i+1])
+				urls[fmt.Sprintf("http://%s/metrics", cmdline[i+1])] = struct{}{}
+				found = true
+				break
 			}
 			if strings.HasPrefix(arg, "--metrics=") {
 				addr := strings.TrimPrefix(arg, "--metrics=")
-				return fmt.Sprintf("http://%s/metrics", addr)
+				urls[fmt.Sprintf("http://%s/metrics", addr)] = struct{}{}
+				found = true
+				break
 			}
 		}
-
-		// Running but no --metrics flag — use default
-		return "http://localhost:2000/metrics"
+		if !found {
+			needsDefaultProbe = true
+		}
 	}
 
-	return "" // cloudflared not running
+	if needsDefaultProbe {
+		for _, url := range defaultCloudflaredMetricsURLs() {
+			urls[url] = struct{}{}
+		}
+	}
+	result := make([]string, 0, len(urls))
+	for url := range urls {
+		result = append(result, url)
+	}
+	return result
+}
+
+func defaultCloudflaredMetricsURLs() []string {
+	client := &http.Client{Timeout: 300 * time.Millisecond}
+	var urls []string
+	for port := 20241; port <= 20245; port++ {
+		url := fmt.Sprintf("http://127.0.0.1:%d/metrics", port)
+		resp, err := client.Get(url)
+		if err != nil {
+			continue
+		}
+		_ = resp.Body.Close()
+		if resp.StatusCode == http.StatusOK {
+			urls = append(urls, url)
+		}
+	}
+	return urls
 }
 
 // collectCloudflareTunnelMetrics auto-discovers cloudflared, scrapes its
 // Prometheus metrics endpoint, and emits per-tunnel metrics with labels.
 // Returns nil, nil when cloudflared is not running or unreachable.
 func collectCloudflareTunnelMetrics(ts int64, configDir string) ([]Metric, error) {
-	metricsURL := discoverCloudflaredMetricsURL()
-	if metricsURL == "" {
-		return nil, nil
+	var all []Metric
+	for _, metricsURL := range discoverCloudflaredMetricsURLs() {
+		metrics, err := collectCloudflareTunnelMetricsFromURL(ts, configDir, metricsURL)
+		if err == nil {
+			all = append(all, metrics...)
+		}
 	}
+	return all, nil
+}
 
+func collectCloudflareTunnelMetricsFromURL(ts int64, configDir, metricsURL string) ([]Metric, error) {
 	// Build tunnel ID → name map from credential files
 	nameMap := buildTunnelNameMap(configDir)
 
 	// Scrape Prometheus endpoint
 	client := &http.Client{Timeout: 3 * time.Second}
+	// Current cloudflared metrics usually have no tunnel_id label. Its local
+	// diagnostic endpoint identifies the tunnel served by this process.
+	diagnosticURL := strings.TrimSuffix(metricsURL, "/metrics") + "/diag/tunnel"
+	diagnosticID := ""
+	if diagResp, err := client.Get(diagnosticURL); err == nil {
+		if diagResp.StatusCode == http.StatusOK {
+			var diagnostic struct {
+				TunnelID string `json:"tunnelID"`
+			}
+			if json.NewDecoder(diagResp.Body).Decode(&diagnostic) == nil {
+				diagnosticID = diagnostic.TunnelID
+			}
+		}
+		_ = diagResp.Body.Close()
+	}
+	if diagnosticID == "" && len(nameMap) == 1 {
+		for id := range nameMap {
+			diagnosticID = id
+		}
+	}
+
 	resp, err := client.Get(metricsURL)
 	if err != nil {
 		return nil, nil // endpoint unreachable
@@ -102,11 +159,16 @@ func collectCloudflareTunnelMetrics(ts int64, configDir string) ([]Metric, error
 		}
 
 		name, labels, value := parsePrometheusLine(line)
-		if name == "" {
+		if name != "cloudflared_tunnel_ha_connections" &&
+			name != "cloudflared_tunnel_total_requests" &&
+			name != "cloudflared_tunnel_request_errors" {
 			continue
 		}
 
 		tunnelID := labels["tunnel_id"]
+		if tunnelID == "" {
+			tunnelID = diagnosticID
+		}
 		if tunnelID == "" {
 			continue
 		}

@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Post, Query, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Header, HttpCode, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { plainToInstance } from 'class-transformer';
 
 import { BaseResponse } from 'src/common/dtos/base-response';
@@ -13,6 +13,7 @@ import { ListDevicesResponseDto } from './dtos/list-devices.dto';
 import { DashboardService } from './dashboard/dashboard.service';
 import { DashboardRangeQueryDto } from './dtos/dashboard-range-query.dto';
 import { DeviceCardDto } from './dtos/device-card.dto';
+import { RedeemPairingDto } from './dtos/redeem-pairing.dto';
 
 @Controller('devices')
 export class DeviceController {
@@ -26,7 +27,6 @@ export class DeviceController {
   @Post()
   async createDevice(
     @Body() dto: CreateDeviceDto,
-    @Req() req: any,
   ): Promise<BaseResponse<CreateDeviceResponseDto>> {
     const device = await this.devices.createDevice({
       externalId: dto.externalId,
@@ -36,9 +36,11 @@ export class DeviceController {
     // Mint the durable enrollment token (sub=device.externalId). The agent
     // stores this once and exchanges it for short-lived access tokens.
     const token = this.agents.mintEnrollment(device.externalId);
+    const pairingCode = await this.agents.createPairingCode(device.externalId);
 
     const payload = {
       token,
+      pairingCode,
       device,
     };
 
@@ -49,6 +51,24 @@ export class DeviceController {
         excludeExtraneousValues: true,
       }),
     );
+  }
+
+  @Post('pair/redeem')
+  @HttpCode(200)
+  @Header('Content-Type', 'text/plain; charset=utf-8')
+  async redeemPairingCode(@Body() dto: RedeemPairingDto): Promise<string> {
+    return this.agents.redeemPairingCode(dto.code, dto.deviceId);
+  }
+
+  @UseGuards(JwtGuard)
+  @Post(':externalId/pairing-code')
+  async createPairingCode(@Param('externalId') externalId: string): Promise<BaseResponse<CreateDeviceResponseDto>> {
+    const device = await this.devices.getActiveDevice(externalId);
+    const token = this.agents.mintEnrollment(device.externalId);
+    const pairingCode = await this.agents.createPairingCode(device.externalId);
+    return new BaseResponse(true, 'Pairing code created', plainToInstance(CreateDeviceResponseDto, {
+      token, pairingCode, device,
+    }, { excludeExtraneousValues: true }));
   }
 
   @UseGuards(JwtGuard)

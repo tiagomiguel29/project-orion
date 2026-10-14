@@ -4,10 +4,13 @@ describe('DeviceController', () => {
   function make() {
     const devices = {
       createDevice: jest.fn(),
+      getActiveDevice: jest.fn(),
       deleteDevice: jest.fn().mockResolvedValue(undefined),
     };
     const agents = {
       mintEnrollment: jest.fn().mockReturnValue('enroll-token'),
+      createPairingCode: jest.fn().mockResolvedValue('pairing-code'),
+      redeemPairingCode: jest.fn().mockResolvedValue('enroll-token'),
       revoke: jest.fn().mockResolvedValue(undefined),
     };
     const dashboard = {
@@ -30,9 +33,25 @@ describe('DeviceController', () => {
     const { controller, devices, agents } = make();
     devices.createDevice.mockResolvedValue({ externalId: 'dev-1' });
 
-    await controller.createDevice({ externalId: 'dev-1' } as any, {} as any);
+    const response = await controller.createDevice({ externalId: 'dev-1' } as any);
 
     expect(agents.mintEnrollment).toHaveBeenCalledWith('dev-1');
+    expect(agents.createPairingCode).toHaveBeenCalledWith('dev-1');
+    expect(response.data?.pairingCode).toBe('pairing-code');
+  });
+
+  it('redeems pairing codes without a dashboard token', async () => {
+    const { controller, agents } = make();
+    await expect(controller.redeemPairingCode({ code: 'code', deviceId: 'dev-1' })).resolves.toBe('enroll-token');
+    expect(agents.redeemPairingCode).toHaveBeenCalledWith('code', 'dev-1');
+  });
+
+  it('issues a fresh pairing code for an existing device', async () => {
+    const { controller, devices, agents } = make();
+    devices.getActiveDevice.mockResolvedValue({ externalId: 'dev-1' });
+    const response = await controller.createPairingCode('dev-1');
+    expect(response.data?.pairingCode).toBe('pairing-code');
+    expect(agents.createPairingCode).toHaveBeenCalledWith('dev-1');
   });
 
   it('revokes credentials when a device is deleted', async () => {

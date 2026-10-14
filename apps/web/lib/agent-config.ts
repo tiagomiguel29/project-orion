@@ -19,3 +19,15 @@ export function getAgentConnection(
       : configuredTlsDisable === "true",
   }
 }
+
+export function getAgentInstallCommand(input: {
+  backendUrl: string
+  grpcAddress: string
+  deviceId: string
+  pairingCode: string
+  tlsDisable: boolean
+}) {
+  const quote = (value: string) => `'${value.replaceAll("'", "'\\''")}'`
+  const installer = "https://github.com/tiagomiguel29/project-orion/releases/latest/download/install.sh"
+  return `curl -fsSL ${installer} | sudo sh -s -- --server ${quote(input.backendUrl.trim().replace(/\/+$/, ""))} --grpc ${quote(input.grpcAddress.trim())} --device ${quote(input.deviceId.trim())} --pair ${quote(input.pairingCode)}${input.tlsDisable ? " --tls-disable" : ""}`
+}

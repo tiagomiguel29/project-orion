@@ -147,6 +147,7 @@ export interface CreateDeviceRequest {
 
 export interface CreateDeviceResponse {
   token: string
+  pairingCode: string
   device: {
     id: string
     externalId: string
@@ -171,6 +172,19 @@ export async function createDevice(
       { headers: { Authorization: `Bearer ${token}` } }
     )
     if (!data.data) throw new Error("Device creation failed: no data returned")
+    return data.data
+  } catch (err) {
+    throw new Error(extractError(err))
+  }
+}
+
+export async function createPairingCode(token: string, externalId: string): Promise<CreateDeviceResponse> {
+  try {
+    const { data } = await api.post<BaseResponse<CreateDeviceResponse>>(
+      `/devices/${encodeURIComponent(externalId)}/pairing-code`, {},
+      { headers: { Authorization: `Bearer ${token}` } },
+    )
+    if (!data.data) throw new Error("Pairing code was not returned")
     return data.data
   } catch (err) {
     throw new Error(extractError(err))
