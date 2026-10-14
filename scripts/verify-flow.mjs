@@ -1,8 +1,9 @@
 // Run against a disposable local development stack. Leaves the test device and
 // its history available for inspection; never deletes existing accounts/data.
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { execFileSync, spawn } from 'node:child_process';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { io } from 'socket.io-client';
@@ -41,7 +42,15 @@ async function subscribe(socket, name, body) {
 const directory = await mkdtemp(join(tmpdir(), 'orion-flow-'));
 let socket;
 let agent;
+const fakeCloudflared = [];
 let agentLog = '';
+async function reserveAvailablePort() {
+  const server = createServer();
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  const port = server.address().port;
+  await new Promise(resolve => server.close(resolve));
+  return port;
+}
 try {
   assert.equal((await request('/health/ready')).status, 'ok');
   const setup = await request('/auth/setup');
@@ -61,6 +70,24 @@ try {
   assert(created.token);
   assert((await request('/devices/dashboard')).devices.some(d => d.externalId === deviceId));
   console.log('PASS device registration');
+  if (process.env.FLOW_SIMULATE_CLOUDFLARE === 'true') {
+    const fixtureBinary = join(directory, 'cloudflared');
+    execFileSync('go', ['build', '-o', fixtureBinary, './scripts/fixtures/cloudflared/main.go'], { env: process.env, stdio: 'pipe' });
+    for (const [tunnelId, tunnelName, connections] of [
+      ['scope-e2e-tunnel', 'Scope E2E Tunnel', 4],
+      ['scope-e2e-secondary', 'Scope E2E Secondary', 2],
+    ]) {
+      await writeFile(join(directory, `${tunnelId}.json`), JSON.stringify({ TunnelID: tunnelId, TunnelName: tunnelName }));
+      const port = await reserveAvailablePort();
+      const fake = spawn(fixtureBinary, [`--metrics=127.0.0.1:${port}`, `--tunnel-id=${tunnelId}`, `--connections=${connections}`], { stdio: ['ignore', 'pipe', 'pipe'] });
+      fakeCloudflared.push(fake);
+      await new Promise((resolve, reject) => {
+        fake.once('error', reject);
+        fake.once('exit', code => reject(new Error(`Fake cloudflared exited before ready (${code})`)));
+        fake.stdout.once('data', data => data.toString().includes('READY') ? resolve() : reject(new Error('Fake cloudflared did not start')));
+      });
+    }
+  }
   socket = io(api, { auth: { token }, transports: ['websocket'], autoConnect: false });
   const connected = event(socket, 'connect');
   socket.connect(); await connected;
@@ -68,17 +95,28 @@ try {
   await subscribe(socket, 'subscribeDevice', { deviceId });
   const telemetry = event(socket, 'telemetry', data => data.deviceId === deviceId);
   const dashboard = event(socket, 'dashboard.update', data => data.externalId === deviceId && data.status === 'online');
-  agent = spawn(process.env.FLOW_AGENT_BINARY ?? 'go', process.env.FLOW_AGENT_BINARY ? [] : ['run', './cmd/agent'], {
+  const agentBinary = process.env.FLOW_AGENT_BINARY ?? join(directory, 'agent');
+  if (!process.env.FLOW_AGENT_BINARY) {
+    execFileSync('go', ['build', '-o', agentBinary, './cmd/agent'], {
+      cwd: new URL('../apps/agent/', import.meta.url),
+      env: process.env,
+      stdio: 'pipe',
+    });
+  }
+  agent = spawn(agentBinary, [], {
     cwd: new URL('../apps/agent/', import.meta.url),
     env: { ...process.env, AGENT_DEVICE_ID: deviceId, AGENT_ENROLLMENT_TOKEN: created.token,
       AGENT_SERVER_ADDRESS: process.env.FLOW_GRPC_ADDRESS ?? 'localhost:50052', AGENT_TLS_DISABLE: 'true',
-      AGENT_INTERVAL_SEC: '2', AGENT_WAL_PATH: join(directory, 'agent.wal') },
+      AGENT_INTERVAL_SEC: '2', AGENT_WAL_PATH: join(directory, 'agent.wal'),
+      ...(fakeCloudflared.length ? { AGENT_CLOUDFLARED_CONFIG_DIR: directory } : {}) },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   agent.on('error', error => { agentLog += error.message; });
   agent.stdout.on('data', data => { agentLog += data; });
   agent.stderr.on('data', data => { agentLog += data; });
-  assert((await telemetry).metrics.length > 0);
+  const liveTelemetry = await telemetry;
+  assert(liveTelemetry.metrics.length > 0);
+  if (fakeCloudflared.length) assert.equal(liveTelemetry.metrics.filter(m => m.name === 'cloudflare.tunnel.ha_connections').length, 2);
   const card = await dashboard;
   assert(card.summary.ramTotalBytes > 0);
   assert(card.sparklines.some(s => s.points.length > 0));
@@ -95,7 +133,26 @@ try {
   assert.equal(persisted.status, 'online');
   assert(persisted.sparklines.some(s => s.points.length > 0));
   console.log('PASS history survives a fresh API load');
-  const offline = event(socket, 'device.status', data => data.deviceId === deviceId && data.status === 'offline');
+  if (process.env.FLOW_EXPECT_DOCKER === 'true') {
+    assert(persisted.containers.length > 0, 'Local Docker is running but no containers reached the device detail API.');
+    assert(persisted.containers.every(c => c.name && c.image && c.ramLimitBytes > 0));
+    console.log(`PASS Docker container detail (${persisted.containers.length} containers)`);
+  }
+  if (fakeCloudflared.length) {
+    const tunnel = persisted.tunnels.find(t => t.tunnelId === 'scope-e2e-tunnel');
+    const secondary = persisted.tunnels.find(t => t.tunnelId === 'scope-e2e-secondary');
+    assert(tunnel && secondary, 'Both fake cloudflared processes must reach the device detail API.');
+    assert.equal(tunnel.tunnelName, 'Scope E2E Tunnel');
+    assert.equal(tunnel.status, 'healthy');
+    assert.equal(tunnel.haConnections, 4);
+    assert.equal(tunnel.totalRequests, 27);
+    assert.equal(tunnel.requestErrors, 2);
+    assert.equal(secondary.tunnelName, 'Scope E2E Secondary');
+    assert.equal(secondary.status, 'degraded');
+    assert.equal(secondary.haConnections, 2);
+    console.log('PASS two fake cloudflared processes → real agent → gRPC → database → tunnel detail API');
+  }
+  const offline = event(socket, 'device.status', data => data.deviceId === deviceId && data.status === 'offline', 60000);
   agent.kill('SIGTERM');
   await offline;
   assert.equal((await request(`/devices/dashboard/${deviceId}`)).status, 'offline');
@@ -108,6 +165,7 @@ try {
   process.exitCode = 1;
 } finally {
   agent?.kill('SIGTERM');
+  for (const fake of fakeCloudflared) fake.kill('SIGTERM');
   socket?.disconnect();
   await rm(directory, { recursive: true, force: true });
 }

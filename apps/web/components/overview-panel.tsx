@@ -1,8 +1,6 @@
 "use client"
 
-import { cn } from "@/lib/utils"
 import type { SystemData } from "./system-card"
-import { Sparkline } from "./sparkline"
 import { MetricBar } from "./metric-bar"
 import { StatusIndicator } from "./status-indicator"
 import Link from "next/link"
@@ -90,8 +88,8 @@ export function OverviewPanel({ system }: OverviewPanelProps) {
           </Link>
           <div className="flex items-center gap-1 text-muted-foreground">
             <Activity className="h-3 w-3" />
-            <span className="text-[10px] uppercase tracking-widest">Live</span>
-            <span className="ml-1 h-1.5 w-1.5 rounded-full bg-[#4ade80] animate-pulse" />
+            <span className="text-[10px] uppercase tracking-widest">{system.status === "online" ? "Live" : "History"}</span>
+            {system.status === "online" && <span className="ml-1 h-1.5 w-1.5 rounded-full bg-[#4ade80] animate-pulse" />}
           </div>
         </div>
       </div>
@@ -424,7 +422,7 @@ export function OverviewPanel({ system }: OverviewPanelProps) {
                 </div>
                 <div className="flex justify-between text-[10px]">
                   <span className="text-muted-foreground uppercase tracking-widest">Free</span>
-                  <span className="text-foreground tabular-nums font-medium">{system.disk.total - system.disk.used} GB</span>
+                  <span className="text-foreground tabular-nums font-medium">{Math.max(0, system.disk.total - system.disk.used).toFixed(1)} GB</span>
                 </div>
                 <MetricBar
                   label=""

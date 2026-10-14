@@ -246,12 +246,17 @@ export class AuthService {
     const user = await this.findUserByIdOrThrow(userId);
     const challenge = await this.assertActiveMfaChallenge(user, 'passkey-registration');
 
-    const verification = await verifyRegistrationResponse({
-      response,
-      expectedChallenge: challenge.challenge,
-      expectedOrigin: challenge.origin,
-      expectedRPID: challenge.rpId,
-    });
+    let verification: Awaited<ReturnType<typeof verifyRegistrationResponse>>;
+    try {
+      verification = await verifyRegistrationResponse({
+        response,
+        expectedChallenge: challenge.challenge,
+        expectedOrigin: challenge.origin,
+        expectedRPID: challenge.rpId,
+      });
+    } catch {
+      throw new UnauthorizedException('Passkey registration could not be verified');
+    }
 
     if (!verification.verified || !verification.registrationInfo) {
       throw new UnauthorizedException('Passkey registration could not be verified');
@@ -325,14 +330,19 @@ export class AuthService {
       throw new UnauthorizedException('Passkey not recognized');
     }
 
-    const verification = await verifyAuthenticationResponse({
-      response,
-      expectedChallenge: challenge.challenge,
-      expectedOrigin: challenge.origin,
-      expectedRPID: challenge.rpId,
-      credential: this.toWebAuthnCredential(passkey),
-      requireUserVerification: false,
-    });
+    let verification: Awaited<ReturnType<typeof verifyAuthenticationResponse>>;
+    try {
+      verification = await verifyAuthenticationResponse({
+        response,
+        expectedChallenge: challenge.challenge,
+        expectedOrigin: challenge.origin,
+        expectedRPID: challenge.rpId,
+        credential: this.toWebAuthnCredential(passkey),
+        requireUserVerification: false,
+      });
+    } catch {
+      throw new UnauthorizedException('Passkey verification failed');
+    }
 
     if (!verification.verified) {
       throw new UnauthorizedException('Passkey verification failed');

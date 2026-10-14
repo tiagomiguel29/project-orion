@@ -59,7 +59,7 @@ export function useRealtimeDashboard(initial: DashboardPayload | undefined) {
       setDevices(initial.devices)
       setTotals(initial.totals)
     }
-  }, [initial]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [initial])
 
   // WebSocket listeners
   useEffect(() => {
