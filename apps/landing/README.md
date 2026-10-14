@@ -54,3 +54,7 @@ For Railway, select the `@project-orion/landing` workspace. Build with
 `npm run start --workspace @project-orion/landing` if Railway has not filled
 these commands in automatically. Set the `SCOPE_*` variables before deployment;
 they are baked into the generated HTML and `runtime-config.js` during build.
+When Railway builds from the repository root, set
+`RAILPACK_CONFIG_FILE=apps/landing/railpack.json` on the landing service. This
+selects Node for the landing build without changing the Go agent or other
+services in the monorepo.
