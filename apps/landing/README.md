@@ -12,9 +12,9 @@ npm run build:landing
 
 Development: http://localhost:5173. Production output: `apps/landing/dist`.
 The build pre-renders `/` and `/docs` into HTML so their headings and guide
-content are available to crawlers before JavaScript runs. Serve `/docs` from
-`docs/index.html` and return 404 for unknown paths. The published
-`scope-landing` image includes an Nginx configuration for these routes. The
+content are available to crawlers before JavaScript runs. The `start` script
+serves the built files using Node.js on
+`PORT` (default 3000), including `/docs`, and returns 404 for unknown paths. The
 `/docs` page displays the actual [deployment Compose file](../../deploy/compose.yml)
 in a syntax-highlighted, copyable panel. It explains the prebuilt images,
 user-selected reverse proxy, migrations, backend scaling, one-command agent
@@ -27,14 +27,13 @@ The colors, monospace typography, monitor/reticle marks, metric labels, status t
 
 ## Search and analytics
 
-Set these environment variables when starting the published Docker image:
+Set these environment variables before building the landing page:
 
 ```sh
-docker run -p 8080:80 \
-  -e SCOPE_LANDING_URL=https://scope.example.com \
-  -e SCOPE_UMAMI_WEBSITE_ID=your-umami-website-id \
-  -e SCOPE_UMAMI_SCRIPT_URL=https://cloud.umami.is/script.js \
-  tiagomiguel29/scope-landing:latest
+SCOPE_LANDING_URL=https://scope.example.com \
+SCOPE_UMAMI_WEBSITE_ID=your-umami-website-id \
+SCOPE_UMAMI_SCRIPT_URL=https://cloud.umami.is/script.js \
+npm run build:landing
 ```
 
 `SCOPE_LANDING_URL` is the public HTTPS origin, without a path. It adds
@@ -50,7 +49,8 @@ self-hosted instance. Umami automatically tracks TanStack Router page changes.
 Scope also records clicks on the main deploy, source, and setup-guide links.
 The tracker respects Do Not Track and excludes search query values.
 
-For a standalone static build, set the same `SCOPE_*` variables during
-`npm run build:landing`; they are baked into the generated HTML and
-`runtime-config.js`. The Docker image reads them at **container startup**, so
-you can use one published image for different domains and Umami instances.
+For Railway, select the `@project-orion/landing` workspace. Build with
+`npm run build --workspace @project-orion/landing` and start with
+`npm run start --workspace @project-orion/landing` if Railway has not filled
+these commands in automatically. Set the `SCOPE_*` variables before deployment;
+they are baked into the generated HTML and `runtime-config.js` during build.

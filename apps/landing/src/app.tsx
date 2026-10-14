@@ -651,7 +651,8 @@ function Docs() {
         Deploy Scope from prebuilt container images, or run a local development
         stack from source. Then connect each machine with the one-command agent
         installer. The image deployment and monitored machines need no source
-        checkout.
+        checkout. The current landing page deploys from its npm workspace on
+        Railway; the Compose example retains the last published landing image.
       </p>
       <div className="docs-paths" aria-label="Installation requirements">
         <div>
@@ -667,9 +668,10 @@ function Docs() {
       </div>
       <h2 id="deploy" className="docs-section-heading">DEPLOY FROM IMAGES.</h2>
       <p className="docs-section-intro">
-        Scope publishes <code>scope-backend</code>, <code>scope-web</code>, and
-        <code> scope-landing</code> on Docker Hub under <code>tiagomiguel29</code> for Linux x64
-        and ARM64. The example below adds PostgreSQL, Redis, and a one-time
+        Scope publishes <code>scope-backend</code> and <code>scope-web</code> on
+        Docker Hub under <code>tiagomiguel29</code> for Linux x64 and ARM64.
+        The example also retains the last published <code>scope-landing</code>
+        image. It adds PostgreSQL, Redis, and a one-time
         database migration. You choose how to host each component and which
         reverse proxy handles HTTPS, WebSockets, and gRPC.
       </p>

@@ -1,5 +1,11 @@
 # Deploy Scope from container images
 
+The landing page now deploys from its npm workspace on Railway. Its Dockerfile
+was removed, so `scope-landing:main` in the Compose examples below is the last
+published image and will not receive new landing changes. See the
+[landing README](../apps/landing/README.md) for the current build and start
+commands. The backend and dashboard images continue to publish on Docker Hub.
+
 ## Landing page only on Coolify
 
 Use [landing.compose.yml](landing.compose.yml) when deploying only the public

@@ -21,8 +21,6 @@ jobs:
             dockerfile: apps/backend/Dockerfile
           - name: web
             dockerfile: apps/web/Dockerfile
-          - name: landing
-            dockerfile: apps/landing/Dockerfile
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-qemu-action@v3
