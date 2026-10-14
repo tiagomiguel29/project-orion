@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct ProjectOrionApp: App {
+struct ScopeApp: App {
     @State private var appState = AppState()
 
     var body: some Scene {

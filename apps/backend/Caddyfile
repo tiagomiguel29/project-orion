@@ -1,4 +1,4 @@
-# Reverse proxy / TLS terminator for Project Orion ingestion + API.
+# Reverse proxy / TLS terminator for Scope ingestion + API.
 #
 # Terminates TLS on 443 and routes by protocol to the backend:
 #   - gRPC (Content-Type: application/grpc*) -> backend gRPC port over h2c

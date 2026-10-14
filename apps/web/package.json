@@ -2,7 +2,7 @@
   "name": "@project-orion/web",
   "version": "0.1.0",
   "private": true,
-  "description": "Project Orion web dashboard",
+  "description": "Scope web dashboard",
   "license": "MIT",
   "scripts": {
     "dev": "next dev",
