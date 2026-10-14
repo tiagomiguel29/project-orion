@@ -1,0 +1,18 @@
+# Standalone Scope landing page for Coolify or any Docker Compose host.
+services:
+  landing:
+    image: tiagomiguel29/scope-landing:${SCOPE_IMAGE_TAG:-main}
+    pull_policy: always
+    restart: unless-stopped
+    environment:
+      SCOPE_LANDING_URL: ${SCOPE_LANDING_URL:-}
+      SCOPE_UMAMI_WEBSITE_ID: ${SCOPE_UMAMI_WEBSITE_ID:-}
+      SCOPE_UMAMI_SCRIPT_URL: ${SCOPE_UMAMI_SCRIPT_URL:-}
+    expose:
+      - "80"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/ && wget -q -O /dev/null http://127.0.0.1/docs"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s

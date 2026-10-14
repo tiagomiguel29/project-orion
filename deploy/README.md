@@ -1,5 +1,31 @@
 # Deploy Scope from container images
 
+## Landing page only on Coolify
+
+Use [landing.compose.yml](landing.compose.yml) when deploying only the public
+landing page. In the Scope project and desired environment, add an Application
+from the public Git repository
+`https://github.com/tiagomiguel29/project-orion`, select the `main` branch and
+the Docker Compose build strategy, then set **Base Directory** to `/` and
+**Docker Compose Location** to `deploy/landing.compose.yml`. The Compose file
+pulls the published Docker Hub image; Coolify does not build the website.
+
+Under **Domains**, route your landing hostname to the `landing` service on
+internal port `80`. Set `SCOPE_LANDING_URL` under **Environment Variables** to
+that hostname's full HTTPS origin (for example `https://scope.example.com`,
+without a trailing slash). This enables canonical links and the sitemap.
+`SCOPE_UMAMI_WEBSITE_ID` and `SCOPE_UMAMI_SCRIPT_URL` are optional; leave them
+empty until Umami is configured. The script URL defaults to Umami Cloud when
+the website ID is set. `SCOPE_IMAGE_TAG` defaults to `main` and can be pinned
+to a published image tag. Save and deploy after the [container image workflow](../.github/workflows/container-images.yml)
+has published that tag, then check `/`, `/docs`, and `/sitemap.xml` at your
+hostname. The Compose health check covers `/` and `/docs`.
+
+The Compose file does not publish a host port; Coolify's proxy connects to the
+service's internal port `80`.
+
+## Full platform
+
 The [Compose example](compose.yml) pulls `tiagomiguel29/scope-backend`,
 `tiagomiguel29/scope-web`, and `tiagomiguel29/scope-landing` from Docker Hub.
 It runs PostgreSQL, Redis, and a one-time database migration. No source checkout
