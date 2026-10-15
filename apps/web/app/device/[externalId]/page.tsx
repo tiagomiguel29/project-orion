@@ -4,6 +4,7 @@ import { use, useEffect, useState } from "react"
 import useSWR from "swr"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/components/auth-provider"
+import { DashboardHeader } from "@/components/dashboard-header"
 import { DeleteDeviceDialog } from "@/components/delete-device-dialog"
 import { AddDeviceDialog } from "@/components/add-device-dialog"
 import { fetchDevice } from "@/lib/dashboard-service"
@@ -100,7 +101,7 @@ interface DevicePageProps {
 export default function DevicePage({ params }: DevicePageProps) {
   const { externalId } = use(params)
   const router = useRouter()
-  const { isAuthenticated, authState, token, user } = useAuth()
+  const { isAuthenticated, authState, token, user, logout } = useAuth()
   const [range, setRange] = useState<DashboardRange>("1h")
   const [chartNowMs, setChartNowMs] = useState(Date.now)
   useEffect(() => {
@@ -171,6 +172,9 @@ export default function DevicePage({ params }: DevicePageProps) {
   return (
     <div className="flex flex-col h-screen bg-background grid-overlay">
       <div className="fixed inset-0 scanline z-50 pointer-events-none" />
+
+      <DashboardHeader section="Device" name={user?.name} email={user?.email}
+        onLogout={() => { logout(); router.push("/") }} onSettingsClick={() => router.push("/settings?tab=account")} />
 
       {/* Header */}
       <header className="flex items-center justify-between px-4 py-3 border-b border-border bg-card/80 relative z-10">

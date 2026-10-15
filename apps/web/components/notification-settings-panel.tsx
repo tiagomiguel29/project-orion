@@ -13,9 +13,13 @@ const providerDescriptions: Record<Provider, string> = {
   discord: "Post alerts to a Discord channel.",
   email: "Deliver alerts through Resend, Amazon SES, or SMTP.",
 }
-const input = "mt-1 w-full border border-border bg-secondary px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50"
-const primaryButton = "border border-primary/40 bg-primary/10 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-primary transition-colors hover:bg-primary/20 disabled:cursor-not-allowed disabled:opacity-40"
-const secondaryButton = "border border-border bg-secondary px-3 py-2 text-xs uppercase tracking-wider text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground disabled:opacity-40"
+const input = "mt-1 h-9 w-full border border-border bg-secondary px-3 text-xs text-foreground outline-none focus:border-primary/50"
+const primaryButton = "border border-primary/40 bg-primary/10 px-3 py-2 text-[10px] uppercase tracking-widest text-primary transition-colors hover:bg-primary/20 disabled:cursor-not-allowed disabled:opacity-40"
+const secondaryButton = "border border-border bg-secondary px-3 py-2 text-[10px] uppercase tracking-widest text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground disabled:opacity-40"
+const card = "relative border border-border bg-card corner-marks"
+const cardHeader = "flex items-center justify-between border-b border-border bg-secondary/50 px-4 py-2"
+const cardTitle = "text-[9px] uppercase tracking-widest text-muted-foreground"
+const divider = "flex items-center gap-3 text-[9px] uppercase tracking-[0.25em] text-muted-foreground"
 
 function isConfigured(provider: Provider, settings: GlobalSettings) {
   if (provider === "webhook") return settings.webhookConfigured
@@ -176,32 +180,42 @@ export function NotificationSettingsPanel() {
   const available = (["webhook", "discord", "email"] as const).filter(provider => !isConfigured(provider, settings))
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 p-5 pb-20 md:p-7">
-      <div className="flex items-start justify-between gap-4">
-        <div><h2 className="text-sm font-bold uppercase tracking-[.18em] text-foreground">Notifications</h2><p className="mt-1 text-xs text-muted-foreground">Set global alerts and delivery destinations. Device overrides live in each device&apos;s settings.</p></div>
+    <div className="mx-auto max-w-5xl space-y-6 p-5 pb-20 md:p-7">
+      <div className="flex items-center justify-between gap-4 border-b border-border pb-4">
+        <div><h2 className="text-sm font-bold uppercase tracking-wider text-foreground">Notifications</h2><p className="mt-1 text-[10px] text-muted-foreground">Global alerts and delivery destinations. Device overrides live in each device&apos;s settings.</p></div>
         <button type="button" onClick={() => void load()} aria-label="Refresh notifications" className={secondaryButton}><RefreshCw size={14} /></button>
       </div>
 
       {error && <p role="alert" className="border border-red-500/40 bg-red-500/10 p-3 text-xs text-red-300">{error}</p>}
       {message && <p role="status" className="border border-primary/40 bg-primary/10 p-3 text-xs text-primary">{message}</p>}
 
-      <section className="border border-border bg-card/80 p-5">
-        <div className="mb-3 flex items-center gap-2"><Bell size={15} className="text-primary" /><h3 className="text-xs font-bold uppercase tracking-[.2em] text-primary">Global rules</h3></div>
-        <NotificationRuleEditor value={config} onChange={policy => setConfig({ ...config, ...policy })} global />
-        <div className="mt-5 border-t border-border pt-4"><button type="button" className={primaryButton} disabled={busy} onClick={() => void persist(config, { config }, "Global rules saved")}>Save global rules</button></div>
-      </section>
-
-      <section className="border border-border bg-card/80 p-5">
-        <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
-          <div><h3 className="text-xs font-bold uppercase tracking-[.2em] text-primary">Providers</h3><p className="mt-1 text-xs text-muted-foreground">Add a destination, then choose whether it is active for alerts.</p></div>
-          <button type="button" className={`${primaryButton} flex items-center gap-2`} disabled={busy || available.length === 0} onClick={() => openForm(null)}><Plus size={14} /> Add provider</button>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <div className="space-y-6">
+          <div className={divider}><span className="h-px flex-1 bg-border" />Alert policy<span className="h-px flex-1 bg-border" /></div>
+          <section className={card}>
+            <div className={cardHeader}><h3 className={cardTitle}>Global rules</h3><Bell size={13} className="text-muted-foreground" /></div>
+            <div className="space-y-4 p-4">
+              <NotificationRuleEditor value={config} onChange={policy => setConfig({ ...config, ...policy })} global />
+              <button type="button" className={`w-full ${primaryButton}`} disabled={busy} onClick={() => void persist(config, { config }, "Global rules saved")}>Save global rules</button>
+            </div>
+          </section>
         </div>
-        {configured.length === 0 ? <div className="border border-dashed border-border p-7 text-center text-xs text-muted-foreground">No providers configured yet. Add one to receive alerts.</div> : (
-          <div className="grid gap-3 md:grid-cols-2">
+        <div className="space-y-6">
+          <div className={divider}><span className="h-px flex-1 bg-border" />Delivery<span className="h-px flex-1 bg-border" /></div>
+
+      <section className={card}>
+        <div className={cardHeader}><h3 className={cardTitle}>Providers</h3><Send size={13} className="text-muted-foreground" /></div>
+        <div className="space-y-4 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-[10px] text-muted-foreground">Configured delivery destinations</p>
+          <button type="button" className={`${primaryButton} flex items-center gap-2`} disabled={busy || available.length === 0} onClick={() => openForm(null)}><Plus size={13} /> Add provider</button>
+        </div>
+        {configured.length === 0 ? <div className="border border-border bg-secondary/30 p-5 text-center text-[10px] text-muted-foreground">No providers configured yet. Add one to receive alerts.</div> : (
+          <div className="space-y-3">
             {configured.map(provider => (
-              <div key={provider} className="border border-border bg-secondary/40 p-4">
+              <div key={provider} className="border border-border bg-secondary/40 p-3">
                 <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-3"><span className="border border-primary/30 bg-primary/5 p-2 text-primary">{provider === "email" ? <Mail size={17} /> : <Webhook size={17} />}</span><div><h4 className="text-sm font-semibold text-foreground">{providerNames[provider]}</h4><p className="mt-1 text-[11px] text-muted-foreground">{provider === "email" ? `${config.emailTransport.toUpperCase()} · ${config.emailRecipients.length} recipient${config.emailRecipients.length === 1 ? "" : "s"}` : "Destination configured"}</p></div></div>
+                  <div className="flex items-center gap-3"><span className="border border-primary/30 bg-secondary p-2 text-primary">{provider === "email" ? <Mail size={15} /> : <Webhook size={15} />}</span><div><h4 className="text-xs text-foreground">{providerNames[provider]}</h4><p className="mt-1 text-[10px] text-muted-foreground">{provider === "email" ? `${config.emailTransport.toUpperCase()} · ${config.emailRecipients.length} recipient${config.emailRecipients.length === 1 ? "" : "s"}` : "Destination configured"}</p></div></div>
                   <span className={`text-[10px] uppercase tracking-wider ${config.providers[provider] ? "text-primary" : "text-muted-foreground"}`}>{config.providers[provider] ? "Active" : "Paused"}</span>
                 </div>
                 <div className="mt-3 border-t border-border"><SettingSwitch label={`Enable ${providerNames[provider]}`} checked={config.providers[provider]} onChange={checked => void persist({ ...config, providers: { ...config.providers, [provider]: checked } }, { config }, `${providerNames[provider]} ${checked ? "enabled" : "paused"}`)} disabled={busy} /></div>
@@ -211,9 +225,9 @@ export function NotificationSettingsPanel() {
           </div>
         )}
 
-        {formOpen && <div className="mt-5 border border-primary/30 bg-primary/[.03] p-5">
+        {formOpen && <div className="border border-primary/30 bg-secondary/30 p-4">
           <div className="mb-4 flex items-center justify-between"><div><h4 className="text-xs font-bold uppercase tracking-[.18em] text-primary">{selectedProvider && isConfigured(selectedProvider, settings) ? `Edit ${providerNames[selectedProvider]}` : "Add provider"}</h4><p className="mt-1 text-[11px] text-muted-foreground">{selectedProvider ? providerDescriptions[selectedProvider] : "Choose a delivery type to continue."}</p></div><button type="button" aria-label="Close provider form" className="text-muted-foreground hover:text-foreground" onClick={() => setFormOpen(false)}><X size={16} /></button></div>
-          {!selectedProvider ? <div className="grid gap-2 sm:grid-cols-3">{available.map(provider => <button type="button" key={provider} onClick={() => setSelectedProvider(provider)} className="border border-border bg-secondary/50 p-4 text-left transition-colors hover:border-primary/50 hover:bg-primary/5"><span className="text-xs font-semibold text-foreground">{providerNames[provider]}</span><span className="mt-1 block text-[11px] leading-relaxed text-muted-foreground">{providerDescriptions[provider]}</span></button>)}</div> : (
+          {!selectedProvider ? <div className="grid gap-2">{available.map(provider => <button type="button" key={provider} onClick={() => setSelectedProvider(provider)} className="border border-border bg-secondary/50 p-3 text-left transition-colors hover:border-primary/50 hover:bg-primary/5"><span className="text-xs text-foreground">{providerNames[provider]}</span><span className="mt-1 block text-[10px] leading-relaxed text-muted-foreground">{providerDescriptions[provider]}</span></button>)}</div> : (
             <form className="grid gap-4 md:grid-cols-2" onSubmit={event => void saveProvider(event)}>
               {selectedProvider === "webhook" && <label className="text-xs text-muted-foreground md:col-span-2">Webhook URL<input type="url" className={input} value={webhookUrl} onChange={event => setWebhookUrl(event.target.value)} required={!settings.webhookConfigured} placeholder="https://example.com/scope-alerts" /><span className="mt-1 block text-[11px]">Leave blank to retain the saved URL when editing.</span></label>}
               {selectedProvider === "discord" && <label className="text-xs text-muted-foreground md:col-span-2">Discord webhook URL<input type="url" className={input} value={discordUrl} onChange={event => setDiscordUrl(event.target.value)} required={!settings.discordConfigured} placeholder="https://discord.com/api/webhooks/..." /><span className="mt-1 block text-[11px]">Leave blank to retain the saved URL when editing.</span></label>}
@@ -233,12 +247,16 @@ export function NotificationSettingsPanel() {
             </form>
           )}
         </div>}
-        <p className="mt-4 text-[11px] text-muted-foreground">A test sends a real alert to the selected destination.</p>
+        <p className="border-t border-border pt-3 text-[10px] text-muted-foreground">A test sends a real alert to the selected destination.</p>
+        </div>
       </section>
+        </div>
+      </div>
 
-      <section className="grid gap-5 lg:grid-cols-2">
-        <div className="border border-border bg-card/80 p-5"><h3 className="mb-4 text-xs font-bold uppercase tracking-[.2em] text-primary">Recent alerts</h3>{events.length ? <div className="space-y-3">{events.map(event => <div key={event.id} className="border-t border-border pt-3"><div className="flex justify-between gap-3 text-xs"><span className={event.severity === "critical" ? "text-red-400" : event.severity === "warning" ? "text-amber-400" : "text-primary"}>{event.message}</span><time className="shrink-0 text-muted-foreground">{new Date(event.time).toLocaleString()}</time></div><p className="mt-1 text-xs text-muted-foreground">{event.deviceName}</p></div>)}</div> : <p className="text-xs text-muted-foreground">No alerts yet.</p>}</div>
-        <div className="border border-border bg-card/80 p-5"><h3 className="mb-4 text-xs font-bold uppercase tracking-[.2em] text-primary">Delivery attempts</h3>{deliveries.length ? <div className="space-y-3">{deliveries.map(delivery => <div key={delivery.id} className="flex justify-between gap-3 border-t border-border pt-3 text-xs"><div><span className="uppercase">{delivery.provider}</span><span className="ml-2 text-muted-foreground">{delivery.attempts} attempt(s)</span>{delivery.lastError && <p className="text-red-400">{delivery.lastError}</p>}</div><span className={delivery.status === "sent" ? "text-primary" : delivery.status === "failed" ? "text-red-400" : "text-amber-400"}>{delivery.status}</span></div>)}</div> : <p className="text-xs text-muted-foreground">No deliveries yet.</p>}</div>
+      <div className={divider}><span className="h-px flex-1 bg-border" />Activity<span className="h-px flex-1 bg-border" /></div>
+      <section className="grid gap-6 lg:grid-cols-2">
+        <div className={card}><div className={cardHeader}><h3 className={cardTitle}>Recent alerts</h3><Bell size={13} className="text-muted-foreground" /></div><div className="p-4">{events.length ? <div className="space-y-3">{events.map(event => <div key={event.id} className="border-b border-border pb-3 last:border-0"><div className="flex justify-between gap-3 text-[10px]"><span className={event.severity === "critical" ? "text-red-400" : event.severity === "warning" ? "text-amber-400" : "text-primary"}>{event.message}</span><time className="shrink-0 text-muted-foreground">{new Date(event.time).toLocaleString()}</time></div><p className="mt-1 text-[10px] text-muted-foreground">{event.deviceName}</p></div>)}</div> : <p className="text-[10px] text-muted-foreground">No alerts yet.</p>}</div></div>
+        <div className={card}><div className={cardHeader}><h3 className={cardTitle}>Delivery attempts</h3><Send size={13} className="text-muted-foreground" /></div><div className="p-4">{deliveries.length ? <div className="space-y-3">{deliveries.map(delivery => <div key={delivery.id} className="flex justify-between gap-3 border-b border-border pb-3 text-[10px] last:border-0"><div><span className="uppercase">{delivery.provider}</span><span className="ml-2 text-muted-foreground">{delivery.attempts} attempt(s)</span>{delivery.lastError && <p className="text-red-400">{delivery.lastError}</p>}</div><span className={delivery.status === "sent" ? "text-primary" : delivery.status === "failed" ? "text-red-400" : "text-amber-400"}>{delivery.status}</span></div>)}</div> : <p className="text-[10px] text-muted-foreground">No deliveries yet.</p>}</div></div>
       </section>
     </div>
   )

@@ -97,7 +97,6 @@ export default function DashboardPage() {
         onSearchChange={setSearchQuery}
         name={user?.name}
         email={user?.email}
-        role={user?.role}
         onLogout={logout}
         onSettingsClick={() => router.push("/settings?tab=account")}
       />

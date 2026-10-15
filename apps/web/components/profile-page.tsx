@@ -392,9 +392,6 @@ export function ProfilePage({ onBack, embedded = false }: ProfilePageProps) {
           <span className="text-[9px] text-muted-foreground uppercase tracking-widest">
             Profile // Settings
           </span>
-          <span className="text-[9px] text-muted-foreground uppercase tracking-widest">
-            Secure Channel
-          </span>
         </div>
         <div className="flex items-center gap-3 px-4 py-3">
           <button

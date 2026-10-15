@@ -3,7 +3,7 @@
 import { Switch } from "@/components/ui/switch"
 import type { Policy, Provider } from "@/lib/notification-service"
 
-const inputClass = "mt-1 w-full border border-border bg-secondary px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50"
+const inputClass = "mt-1 h-9 w-full border border-border bg-secondary px-3 text-xs text-foreground outline-none focus:border-primary/50"
 
 export function SettingSwitch({
   label,
@@ -19,10 +19,10 @@ export function SettingSwitch({
   disabled?: boolean
 }) {
   return (
-    <div className="flex items-center justify-between gap-4 border-b border-border/60 py-3 last:border-b-0">
+    <div className="flex items-center justify-between gap-4 border-b border-border py-2.5 last:border-b-0">
       <div>
-        <p className="text-xs font-medium text-foreground">{label}</p>
-        {description && <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">{description}</p>}
+        <p className="text-xs text-foreground">{label}</p>
+        {description && <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">{description}</p>}
       </div>
       <Switch aria-label={label} checked={checked} onCheckedChange={onChange} disabled={disabled} />
     </div>
@@ -42,7 +42,7 @@ export function NotificationRuleEditor({
     onChange({ ...value, rules: { ...value.rules, [name]: val } })
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       <div>
         <SettingSwitch
           label="Enable notifications"
@@ -53,7 +53,7 @@ export function NotificationRuleEditor({
         <SettingSwitch label="Agent offline" checked={value.rules.offline} onChange={checked => setRule("offline", checked)} />
         <SettingSwitch label="Send recovery alerts" checked={value.rules.recovery} onChange={checked => setRule("recovery", checked)} />
       </div>
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2">
         {([
           ["offlineAfterSec", "Offline after (seconds)", 10, 3600],
           ["cpuPct", "CPU usage (%)", 1, 100],
@@ -61,14 +61,14 @@ export function NotificationRuleEditor({
           ["diskPct", "Disk usage (%)", 1, 100],
           ["temperatureC", "CPU temperature (°C)", 1, 150],
         ] as const).map(([key, label, min, max]) => (
-          <label key={key} className="text-[11px] text-muted-foreground">
+          <label key={key} className="text-[9px] uppercase tracking-widest text-muted-foreground">
             {label}
             <input className={inputClass} type="number" min={min} max={max} value={value.rules[key]}
               onChange={event => setRule(key, Number(event.target.value))} />
           </label>
         ))}
       </div>
-      {global && <p className="text-[11px] text-muted-foreground">The offline timeout also determines when Scope marks an agent offline.</p>}
+      {global && <p className="border-t border-border pt-3 text-[10px] text-muted-foreground">The offline timeout also determines when Scope marks an agent offline.</p>}
     </div>
   )
 }

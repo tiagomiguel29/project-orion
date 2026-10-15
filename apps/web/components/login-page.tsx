@@ -129,9 +129,6 @@ export function LoginPage({ mode }: LoginPageProps) {
         <span className="h-1 w-1 rounded-full bg-primary animate-pulse" />
         SCOPE v1.0.0
       </div>
-      <div className="absolute bottom-4 right-4 text-[9px] text-muted-foreground tracking-widest">
-        SECURE CHANNEL
-      </div>
 
       {/* Decorative corner marks */}
       <div className="absolute top-8 left-8 w-16 h-16 border-l border-t border-border/40" />

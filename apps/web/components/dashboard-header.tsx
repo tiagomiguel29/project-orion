@@ -1,22 +1,23 @@
 "use client"
 
 import { Search, Monitor, Wifi, WifiOff, AlertTriangle, LogOut, User, Settings2 } from "lucide-react"
+import Link from "next/link"
 import type { SystemData } from "./system-card"
 import type { DashboardTotals } from "@/lib/dashboard-service"
 
 interface DashboardHeaderProps {
-  systems: SystemData[]
+  systems?: SystemData[]
   totals?: DashboardTotals | null
-  searchQuery: string
-  onSearchChange: (query: string) => void
+  searchQuery?: string
+  onSearchChange?: (query: string) => void
+  section?: string
   name?: string
   email?: string
-  role?: string
   onLogout?: () => void
   onSettingsClick?: () => void
 }
 
-export function DashboardHeader({ systems, totals, searchQuery, onSearchChange, name, email, role, onLogout, onSettingsClick }: DashboardHeaderProps) {
+export function DashboardHeader({ systems = [], totals, searchQuery = "", onSearchChange, section, name, email, onLogout, onSettingsClick }: DashboardHeaderProps) {
   // Use API totals when available, otherwise compute from local data
   const onlineCount = totals?.online ?? systems.filter((s) => s.status === "online").length
   const offlineCount = totals?.offline ?? systems.filter((s) => s.status === "offline").length
@@ -28,7 +29,7 @@ export function DashboardHeader({ systems, totals, searchQuery, onSearchChange, 
       {/* Main header */}
       <div className="flex items-center justify-between px-4 py-3">
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
+          <Link href="/" className="flex items-center gap-2" aria-label="Scope dashboard">
             <div className="border border-primary/30 p-1.5 bg-secondary">
               <Monitor className="h-4 w-4 text-primary" />
             </div>
@@ -40,10 +41,10 @@ export function DashboardHeader({ systems, totals, searchQuery, onSearchChange, 
                 Infrastructure Monitor
               </p>
             </div>
-          </div>
+          </Link>
 
           {/* Status summary */}
-          <div className="hidden md:flex items-center gap-3 ml-6 pl-6 border-l border-border">
+          {section ? <span className="hidden border-l border-border pl-5 text-[9px] uppercase tracking-widest text-muted-foreground sm:inline">{section}</span> : <div className="hidden md:flex items-center gap-3 ml-6 pl-6 border-l border-border">
             <div className="flex items-center gap-1.5">
               <Wifi className="h-3 w-3 text-[#4ade80]" />
               <span className="text-xs text-[#4ade80] tabular-nums font-medium">{onlineCount}</span>
@@ -67,12 +68,12 @@ export function DashboardHeader({ systems, totals, searchQuery, onSearchChange, 
               <span className="text-[9px] text-muted-foreground uppercase tracking-wider">Total</span>
               <span className="text-xs text-foreground tabular-nums font-medium">{totalCount}</span>
             </div>
-          </div>
+          </div>}
         </div>
 
         <div className="flex items-center gap-3">
           {/* Search */}
-          <div className="relative">
+          {onSearchChange && <div className="relative">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
             <input
               type="text"
@@ -81,7 +82,7 @@ export function DashboardHeader({ systems, totals, searchQuery, onSearchChange, 
               onChange={(e) => onSearchChange(e.target.value)}
               className="h-8 w-48 bg-secondary border border-border pl-8 pr-3 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/50 focus:ring-0 transition-colors"
             />
-          </div>
+          </div>}
 
           {/* User info & logout */}
           {(name || email) && (
@@ -90,11 +91,6 @@ export function DashboardHeader({ systems, totals, searchQuery, onSearchChange, 
                 <User className="h-3 w-3 text-primary" />
                 <span className="text-xs text-foreground">{name || email}</span>
                 <button type="button" onClick={onSettingsClick} aria-label="Settings" title="Settings" className="ml-1 flex h-7 w-7 items-center justify-center border border-border bg-secondary text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"><Settings2 className="h-3.5 w-3.5" /></button>
-                {role && (
-                  <span className="text-[9px] text-muted-foreground uppercase tracking-wider border border-border px-1.5 py-0.5 bg-secondary">
-                    {role}
-                  </span>
-                )}
               </div>
               {onLogout && (
                 <button
