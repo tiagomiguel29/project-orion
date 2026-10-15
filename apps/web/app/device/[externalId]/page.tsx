@@ -36,7 +36,7 @@ import {
   Microchip,
   Container,
   Cloud,
-  Bell,
+  Settings2,
 } from "lucide-react"
 import {
   Area,
@@ -209,7 +209,7 @@ export default function DevicePage({ params }: DevicePageProps) {
         </div>
 
         <div className="flex items-center gap-3">
-          {user?.role === "admin" && <button onClick={() => router.push(`/notifications?device=${encodeURIComponent(externalId)}`)} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary" aria-label="Device notifications"><Bell className="h-3.5 w-3.5" /> Alerts</button>}
+          {user?.role === "admin" && <button onClick={() => router.push(`/device/${encodeURIComponent(externalId)}/settings`)} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary" aria-label="Device settings"><Settings2 className="h-3.5 w-3.5" /> Settings</button>}
           <div className="flex items-center gap-2">
             <Activity className="h-3 w-3 text-muted-foreground" />
             <span className="text-[10px] text-muted-foreground uppercase tracking-widest">{system?.status === "online" ? "Live" : "History"}</span>

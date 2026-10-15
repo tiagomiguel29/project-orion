@@ -99,7 +99,7 @@ export default function DashboardPage() {
         email={user?.email}
         role={user?.role}
         onLogout={logout}
-        onProfileClick={() => router.push("/profile")}
+        onSettingsClick={() => router.push("/settings?tab=account")}
       />
 
       <div className="flex flex-1 overflow-hidden">

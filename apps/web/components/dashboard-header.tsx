@@ -1,7 +1,6 @@
 "use client"
 
-import { Search, Monitor, Wifi, WifiOff, AlertTriangle, LogOut, User, Bell } from "lucide-react"
-import Link from "next/link"
+import { Search, Monitor, Wifi, WifiOff, AlertTriangle, LogOut, User, Settings2 } from "lucide-react"
 import type { SystemData } from "./system-card"
 import type { DashboardTotals } from "@/lib/dashboard-service"
 
@@ -14,10 +13,10 @@ interface DashboardHeaderProps {
   email?: string
   role?: string
   onLogout?: () => void
-  onProfileClick?: () => void
+  onSettingsClick?: () => void
 }
 
-export function DashboardHeader({ systems, totals, searchQuery, onSearchChange, name, email, role, onLogout, onProfileClick }: DashboardHeaderProps) {
+export function DashboardHeader({ systems, totals, searchQuery, onSearchChange, name, email, role, onLogout, onSettingsClick }: DashboardHeaderProps) {
   // Use API totals when available, otherwise compute from local data
   const onlineCount = totals?.online ?? systems.filter((s) => s.status === "online").length
   const offlineCount = totals?.offline ?? systems.filter((s) => s.status === "offline").length
@@ -72,7 +71,6 @@ export function DashboardHeader({ systems, totals, searchQuery, onSearchChange, 
         </div>
 
         <div className="flex items-center gap-3">
-          {role === "admin" && <Link href="/notifications" aria-label="Notifications" title="Notifications" className="text-muted-foreground hover:text-primary transition-colors"><Bell className="h-4 w-4" /></Link>}
           {/* Search */}
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
@@ -88,19 +86,16 @@ export function DashboardHeader({ systems, totals, searchQuery, onSearchChange, 
           {/* User info & logout */}
           {(name || email) && (
             <div className="flex items-center gap-2 pl-3 border-l border-border">
-              <button
-                onClick={onProfileClick}
-                className="flex items-center gap-1.5 hover:text-primary transition-colors"
-                aria-label="Open profile"
-              >
+              <div className="flex items-center gap-1.5">
                 <User className="h-3 w-3 text-primary" />
-                <span className="text-xs text-foreground hover:text-primary transition-colors">{name || email}</span>
+                <span className="text-xs text-foreground">{name || email}</span>
+                <button type="button" onClick={onSettingsClick} aria-label="Settings" title="Settings" className="ml-1 flex h-7 w-7 items-center justify-center border border-border bg-secondary text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"><Settings2 className="h-3.5 w-3.5" /></button>
                 {role && (
                   <span className="text-[9px] text-muted-foreground uppercase tracking-wider border border-border px-1.5 py-0.5 bg-secondary">
                     {role}
                   </span>
                 )}
-              </button>
+              </div>
               {onLogout && (
                 <button
                   onClick={onLogout}

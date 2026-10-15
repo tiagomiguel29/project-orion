@@ -33,9 +33,10 @@ import {
 
 interface ProfilePageProps {
   onBack: () => void;
+  embedded?: boolean;
 }
 
-export function ProfilePage({ onBack }: ProfilePageProps) {
+export function ProfilePage({ onBack, embedded = false }: ProfilePageProps) {
   const { user, setUser, token } = useAuth();
   const [mfaStatus, setMfaStatus] = useState<MfaStatusResponse | null>(null);
   const [isMfaLoading, setIsMfaLoading] = useState(true);
@@ -381,12 +382,12 @@ export function ProfilePage({ onBack }: ProfilePageProps) {
   }
 
   return (
-    <div className="flex flex-col h-full bg-background grid-overlay">
+    <div className={embedded ? "bg-background grid-overlay" : "flex flex-col h-full bg-background grid-overlay"}>
       {/* Scanline overlay */}
-      <div className="fixed inset-0 scanline z-50 pointer-events-none" />
+      {!embedded && <div className="fixed inset-0 scanline z-50 pointer-events-none" />}
 
       {/* Header */}
-      <header className="border-b border-border bg-card/50">
+      {!embedded && <header className="border-b border-border bg-card/50">
         <div className="flex items-center justify-between px-4 py-2 border-b border-border/50">
           <span className="text-[9px] text-muted-foreground uppercase tracking-widest">
             Profile // Settings
@@ -411,10 +412,10 @@ export function ProfilePage({ onBack }: ProfilePageProps) {
             Profile
           </h1>
         </div>
-      </header>
+      </header>}
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className={embedded ? "p-5 md:p-7" : "flex-1 overflow-y-auto p-6"}>
         <div className="max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Left column */}
           <div className="space-y-6">
