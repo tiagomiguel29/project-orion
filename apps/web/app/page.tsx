@@ -17,6 +17,7 @@ import { useRealtimeDashboard } from "@/hooks/use-realtime-dashboard"
 import { AddDeviceDialog } from "@/components/add-device-dialog"
 import { cn } from "@/lib/utils"
 import { X, LayoutGrid, List, Monitor, AlertTriangle } from "lucide-react"
+import { ScopeLoadingScreen } from "@/components/scope-loading-screen"
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -57,22 +58,7 @@ export default function DashboardPage() {
   // ── Auth gates ──────────────────────────────────────────────────
 
   if (authState === "loading") {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-background grid-overlay">
-        <div className="fixed inset-0 scanline z-50 pointer-events-none" />
-        <div className="flex flex-col items-center gap-4">
-          <div className="border border-primary/30 p-3 bg-secondary">
-            <Monitor className="h-6 w-6 text-primary" />
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="h-1.5 w-1.5 rounded-full bg-primary animate-ping-slow" />
-            <span className="text-xs text-muted-foreground uppercase tracking-widest">
-              Initializing
-            </span>
-          </div>
-        </div>
-      </div>
-    )
+    return <ScopeLoadingScreen message="Initializing…" />
   }
 
   if (authState === "setup") {

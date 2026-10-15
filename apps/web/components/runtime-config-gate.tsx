@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from "react"
 import { setRuntimeConfig, type RuntimeConfig } from "@/lib/runtime-config"
+import { ScopeLoadingScreen } from "@/components/scope-loading-screen"
 
 export function RuntimeConfigGate({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false)
@@ -25,7 +26,7 @@ export function RuntimeConfigGate({ children }: { children: ReactNode }) {
     return () => controller.abort()
   }, [])
 
-  if (error) return <p role="alert">Scope could not load its connection settings. Refresh the page or check the web container.</p>
-  if (!ready) return <p role="status">Connecting to Scope…</p>
+  if (error) return <ScopeLoadingScreen message="Connection unavailable" detail="Scope could not load its connection settings. Check the web container, then try again." onRetry={() => window.location.reload()} />
+  if (!ready) return <ScopeLoadingScreen message="Connecting to Scope…" />
   return children
 }
