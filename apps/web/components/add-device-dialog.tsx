@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Plus, Copy, Check, Monitor, Terminal, Rocket } from "lucide-react"
+import { Plus, Copy, Check, Monitor, Terminal, Rocket, X, ShieldCheck } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -15,7 +15,6 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useAuth } from "@/components/auth-provider"
 import { createDevice, createPairingCode } from "@/lib/dashboard-service"
-import { cn } from "@/lib/utils"
 import { getAgentConnection, getAgentInstallCommand } from "@/lib/agent-config"
 import { getRuntimeConfig } from "@/lib/runtime-config"
 
@@ -23,6 +22,11 @@ interface AddDeviceDialogProps {
   onDeviceCreated?: () => void
   existingDeviceId?: string
 }
+
+const fieldClass = "h-9 rounded-none border-border bg-secondary px-3 font-mono text-xs text-foreground focus-visible:border-primary/50 focus-visible:ring-0"
+const fieldLabelClass = "text-[9px] uppercase tracking-widest text-muted-foreground"
+const secondaryButtonClass = "h-9 rounded-none border border-border bg-secondary px-3 text-[10px] uppercase tracking-widest text-muted-foreground hover:border-primary/40 hover:bg-secondary hover:text-foreground"
+const primaryButtonClass = "h-9 rounded-none border border-primary/40 bg-primary/10 px-4 text-[10px] uppercase tracking-widest text-primary hover:bg-primary/20 disabled:opacity-40"
 
 export function AddDeviceDialog({ onDeviceCreated, existingDeviceId }: AddDeviceDialogProps) {
   const { token } = useAuth()
@@ -126,22 +130,28 @@ export function AddDeviceDialog({ onDeviceCreated, existingDeviceId }: AddDevice
         </button>
       </DialogTrigger>
 
-      <DialogContent className="sm:max-w-md border-border bg-card overflow-hidden" showCloseButton={step === "form"}>
+      <DialogContent className="max-h-[calc(100dvh-2rem)] gap-0 overflow-hidden rounded-none border-border bg-card p-0 shadow-2xl sm:max-w-xl corner-marks" showCloseButton={false}>
         {step === "form" ? (
           <>
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2 text-sm uppercase tracking-widest">
-                <Monitor className="h-4 w-4 text-primary" />
-                {existingDeviceId ? "Install Agent" : "Register Device"}
-              </DialogTitle>
-              <DialogDescription className="text-xs text-muted-foreground">
-                {existingDeviceId ? "Generate a fresh one-time install command for this device." : "Create a new device and get an agent enrollment token for it."}
-              </DialogDescription>
+            <DialogHeader className="gap-0 text-left">
+              <div className="flex items-center justify-between border-b border-border bg-secondary/50 px-4 py-2">
+                <span className="text-[9px] uppercase tracking-widest text-muted-foreground">Devices // Enrollment</span>
+                <button type="button" onClick={() => handleOpenChange(false)} aria-label="Close add device dialog" className="text-muted-foreground transition-colors hover:text-foreground"><X className="h-3.5 w-3.5" /></button>
+              </div>
+              <div className="flex items-start gap-3 border-b border-border px-5 py-4">
+                <div className="border border-primary/30 bg-secondary p-2"><Monitor className="h-4 w-4 text-primary" /></div>
+                <div>
+                  <DialogTitle className="text-sm font-bold uppercase tracking-wider text-foreground">{existingDeviceId ? "Install Agent" : "Register Device"}</DialogTitle>
+                  <DialogDescription className="mt-1 text-[10px] leading-relaxed text-muted-foreground">
+                    {existingDeviceId ? "Generate a fresh one-time install command for this device." : "Create a new device and get an agent enrollment token for it."}
+                  </DialogDescription>
+                </div>
+              </div>
             </DialogHeader>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4 p-5">
               <div className="space-y-2">
-                <Label htmlFor="externalId" className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                <Label htmlFor="externalId" className={fieldLabelClass}>
                   Device ID
                 </Label>
                 <Input
@@ -149,7 +159,7 @@ export function AddDeviceDialog({ onDeviceCreated, existingDeviceId }: AddDevice
                   value={externalId}
                   onChange={(e) => setExternalId(e.target.value)}
                   placeholder="e.g. prod-server-1"
-                  className="bg-background border-border text-sm font-mono"
+                  className={fieldClass}
                   autoFocus
                   required
                   minLength={3}
@@ -159,7 +169,7 @@ export function AddDeviceDialog({ onDeviceCreated, existingDeviceId }: AddDevice
               </div>
 
               {!existingDeviceId && <div className="space-y-2">
-                <Label htmlFor="hostname" className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                <Label htmlFor="hostname" className={fieldLabelClass}>
                   Hostname <span className="text-muted-foreground/50">(optional)</span>
                 </Label>
                 <Input
@@ -167,21 +177,21 @@ export function AddDeviceDialog({ onDeviceCreated, existingDeviceId }: AddDevice
                   value={hostname}
                   onChange={(e) => setHostname(e.target.value)}
                   placeholder="e.g. my-server.local"
-                  className="bg-background border-border text-sm font-mono"
+                  className={fieldClass}
                 />
               </div>}
 
               {error && (
-                <p className="text-[10px] text-destructive uppercase tracking-wider">{error}</p>
+                <p role="alert" className="border border-destructive/30 bg-destructive/5 px-3 py-2 text-[10px] text-destructive">{error}</p>
               )}
 
-              <div className="flex justify-end gap-2 pt-2">
+              <div className="flex justify-end gap-2 border-t border-border pt-4">
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
                   onClick={() => handleOpenChange(false)}
-                  className="text-[10px] uppercase tracking-widest"
+                  className={secondaryButtonClass}
                 >
                   Cancel
                 </Button>
@@ -189,7 +199,7 @@ export function AddDeviceDialog({ onDeviceCreated, existingDeviceId }: AddDevice
                   type="submit"
                   size="sm"
                   disabled={loading}
-                  className="text-[10px] uppercase tracking-widest"
+                  className={primaryButtonClass}
                 >
                   {loading ? "Preparing..." : existingDeviceId ? "Generate Command" : "Create Device"}
                 </Button>
@@ -198,40 +208,44 @@ export function AddDeviceDialog({ onDeviceCreated, existingDeviceId }: AddDevice
           </>
         ) : (
           <>
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2 text-sm uppercase tracking-widest">
-                <Check className="h-4 w-4 text-[#4ade80]" />
-                {existingDeviceId ? "Install Command Ready" : "Device Created"}
-              </DialogTitle>
-              <DialogDescription className="text-xs text-muted-foreground">
-                Install the agent with one command on the machine you want to monitor.
-              </DialogDescription>
+            <DialogHeader className="gap-0 text-left">
+              <div className="flex items-center justify-between border-b border-border bg-secondary/50 px-4 py-2">
+                <span className="text-[9px] uppercase tracking-widest text-muted-foreground">Devices // Agent setup</span>
+                <ShieldCheck className="h-3 w-3 text-primary" />
+              </div>
+              <div className="flex items-start gap-3 border-b border-border px-5 py-4">
+                <div className="border border-primary/30 bg-secondary p-2"><Check className="h-4 w-4 text-primary" /></div>
+                <div>
+                  <DialogTitle className="text-sm font-bold uppercase tracking-wider text-foreground">{existingDeviceId ? "Install Command Ready" : "Device Created"}</DialogTitle>
+                  <DialogDescription className="mt-1 text-[10px] leading-relaxed text-muted-foreground">Install the agent with one command on the machine you want to monitor.</DialogDescription>
+                </div>
+              </div>
             </DialogHeader>
 
-            <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
-              <div className="space-y-2">
-                <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">
+            <div className="max-h-[calc(100dvh-9rem)] space-y-5 overflow-y-auto p-5">
+              <div className="space-y-3">
+                <Label className={fieldLabelClass}>
                   <Rocket className="h-3 w-3 inline mr-1" />
                   Install Scope agent
                 </Label>
                 <p className="text-[10px] text-muted-foreground">
                   Linux or macOS. The pairing code expires in 10 minutes and works once. No repository clone or Go installation is needed.
                 </p>
-                <Label htmlFor="agent-api-url" className="text-[10px] uppercase tracking-widest text-muted-foreground">Backend URL reachable from the target machine</Label>
-                <Input id="agent-api-url" value={backendUrl} onChange={e => setBackendUrl(e.target.value)} className="bg-background border-border text-xs font-mono" />
-                <Label htmlFor="agent-grpc-address" className="text-[10px] uppercase tracking-widest text-muted-foreground">Agent gRPC address</Label>
-                <Input id="agent-grpc-address" value={agentAddress} onChange={e => setAgentAddress(e.target.value)} className="bg-background border-border text-xs font-mono" />
-                <label className="flex items-center gap-2 text-[10px] text-muted-foreground">
-                  <input type="checkbox" checked={tlsDisable} onChange={e => setTlsDisable(e.target.checked)} />
+                <Label htmlFor="agent-api-url" className={fieldLabelClass}>Backend URL reachable from the target machine</Label>
+                <Input id="agent-api-url" value={backendUrl} onChange={e => setBackendUrl(e.target.value)} className={fieldClass} />
+                <Label htmlFor="agent-grpc-address" className={fieldLabelClass}>Agent gRPC address</Label>
+                <Input id="agent-grpc-address" value={agentAddress} onChange={e => setAgentAddress(e.target.value)} className={fieldClass} />
+                <label className="flex items-center gap-2 border border-border bg-secondary/40 px-3 py-2 text-[10px] text-muted-foreground">
+                  <input type="checkbox" checked={tlsDisable} onChange={e => setTlsDisable(e.target.checked)} className="accent-primary" />
                   Localhost plaintext gRPC (development only)
                 </label>
                 <div className="relative">
-                  <pre className="bg-background border border-border p-3 pr-10 text-[11px] font-mono text-muted-foreground whitespace-pre-wrap break-all max-h-48 overflow-y-auto">
+                  <pre className="max-h-48 overflow-y-auto whitespace-pre-wrap break-all border border-border bg-secondary/40 p-3 pr-10 font-mono text-[11px] text-foreground">
                     {installCommand}
                   </pre>
                   <button
                     onClick={() => copy(installCommand, "deploy")}
-                    className="absolute top-2 right-2 p-1.5 border border-border bg-card hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
+                    className="absolute right-2 top-2 border border-border bg-card p-1.5 text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
                     aria-label="Copy install command"
                   >
                     {copiedKey === "deploy" ? (
@@ -241,23 +255,21 @@ export function AddDeviceDialog({ onDeviceCreated, existingDeviceId }: AddDevice
                     )}
                   </button>
                 </div>
-                <p className="text-[10px] text-muted-foreground/70">For another machine, replace localhost with the backend’s reachable HTTPS and gRPC addresses before copying.</p>
+                <p className="text-[10px] text-muted-foreground">For another machine, replace localhost with the backend’s reachable HTTPS and gRPC addresses before copying.</p>
               </div>
 
-              <div className="space-y-2">
-                <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">
+              <div className="space-y-3 border-t border-border pt-5">
+                <Label className={fieldLabelClass}>
                   <Terminal className="h-3 w-3 inline mr-1" /> Manual configuration
                 </Label>
                 <p className="text-[10px] text-muted-foreground">The enrollment token is shown only here. Store it securely if you configure the agent manually.</p>
                 <div className="relative">
-                  <pre className={cn(
-                    "bg-background border border-border p-3 pr-10 text-[11px] font-mono text-muted-foreground whitespace-pre-wrap break-all overflow-x-hidden"
-                  )}>
+                  <pre className="overflow-x-hidden whitespace-pre-wrap break-all border border-border bg-secondary/40 p-3 pr-10 font-mono text-[11px] text-foreground">
                     {envVars}
                   </pre>
                   <button
                     onClick={() => copy(envVars, "env")}
-                    className="absolute top-2 right-2 p-1.5 border border-border bg-card hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
+                    className="absolute right-2 top-2 border border-border bg-card p-1.5 text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
                     aria-label="Copy environment variables"
                   >
                     {copiedKey === "env" ? (
@@ -267,16 +279,16 @@ export function AddDeviceDialog({ onDeviceCreated, existingDeviceId }: AddDevice
                     )}
                   </button>
                 </div>
-                <p className="text-[10px] text-muted-foreground/70">
+                <p className="text-[10px] text-muted-foreground">
                   The agent requires a trusted TLS certificate outside localhost.
                 </p>
               </div>
 
-              <div className="flex justify-end pt-2">
+              <div className="flex justify-end border-t border-border pt-4">
                 <Button
                   size="sm"
                   onClick={() => handleOpenChange(false)}
-                  className="text-[10px] uppercase tracking-widest"
+                  className={primaryButtonClass}
                 >
                   Done
                 </Button>
